@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuppliersRouteImport } from './routes/suppliers'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PpeRouteImport } from './routes/ppe'
 import { Route as MovementsRouteImport } from './routes/movements'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
@@ -26,6 +27,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const SuppliersRoute = SuppliersRouteImport.update({
   id: '/suppliers',
   path: '/suppliers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PpeRoute = PpeRouteImport.update({
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/maintenance': typeof MaintenanceRoute
   '/movements': typeof MovementsRoute
   '/ppe': typeof PpeRoute
+  '/settings': typeof SettingsRoute
   '/suppliers': typeof SuppliersRoute
 }
 export interface FileRoutesByTo {
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/maintenance': typeof MaintenanceRoute
   '/movements': typeof MovementsRoute
   '/ppe': typeof PpeRoute
+  '/settings': typeof SettingsRoute
   '/suppliers': typeof SuppliersRoute
 }
 export interface FileRoutesById {
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/maintenance': typeof MaintenanceRoute
   '/movements': typeof MovementsRoute
   '/ppe': typeof PpeRoute
+  '/settings': typeof SettingsRoute
   '/suppliers': typeof SuppliersRoute
 }
 export interface FileRouteTypes {
@@ -150,6 +159,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/movements'
     | '/ppe'
+    | '/settings'
     | '/suppliers'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -165,6 +175,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/movements'
     | '/ppe'
+    | '/settings'
     | '/suppliers'
   id:
     | '__root__'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/movements'
     | '/ppe'
+    | '/settings'
     | '/suppliers'
   fileRoutesById: FileRoutesById
 }
@@ -196,6 +208,7 @@ export interface RootRouteChildren {
   MaintenanceRoute: typeof MaintenanceRoute
   MovementsRoute: typeof MovementsRoute
   PpeRoute: typeof PpeRoute
+  SettingsRoute: typeof SettingsRoute
   SuppliersRoute: typeof SuppliersRoute
 }
 
@@ -206,6 +219,13 @@ declare module '@tanstack/react-router' {
       path: '/suppliers'
       fullPath: '/suppliers'
       preLoaderRoute: typeof SuppliersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ppe': {
@@ -308,6 +328,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaintenanceRoute: MaintenanceRoute,
   MovementsRoute: MovementsRoute,
   PpeRoute: PpeRoute,
+  SettingsRoute: SettingsRoute,
   SuppliersRoute: SuppliersRoute,
 }
 export const routeTree = rootRouteImport
