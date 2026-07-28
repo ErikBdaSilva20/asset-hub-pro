@@ -1,0 +1,115 @@
+{
+  "id": "asset-hub",
+  "name": "AssetHub — Gestão corporativa de ativos",
+  "description": "Controle de ciclo de vida de ativos, equipamentos, licenças, EPIs, manutenções, movimentações e auditorias, com departamentos, categorias e fornecedores.",
+  "version": "1.0.0",
+  "engine": "vite-react-gateway",
+  "schemaVersion": 1,
+  "migrations": ["0001_business_schema.sql"],
+  "auth": { "provider": "better-auth", "roles": ["admin", "manager", "rep"] },
+  "screens": [
+    {
+      "id": "dashboard",
+      "route": "/dashboard",
+      "title": "Dashboard",
+      "file": "src/modules/dashboard/dashboard-page"
+    },
+    { "id": "assets", "route": "/assets", "title": "Ativos", "file": "src/screens/AssetsScreen" },
+    {
+      "id": "equipment",
+      "route": "/equipment",
+      "title": "Equipamentos",
+      "file": "src/screens/EquipmentScreen"
+    },
+    {
+      "id": "employees",
+      "route": "/employees",
+      "title": "Colaboradores",
+      "file": "src/screens/EmployeesScreen"
+    },
+    {
+      "id": "movements",
+      "route": "/movements",
+      "title": "Movimentações",
+      "file": "src/screens/MovementsScreen"
+    },
+    {
+      "id": "licenses",
+      "route": "/licenses",
+      "title": "Licenças",
+      "file": "src/screens/LicensesScreen"
+    },
+    { "id": "ppe", "route": "/ppe", "title": "EPIs", "file": "src/screens/PpeScreen" },
+    {
+      "id": "maintenance",
+      "route": "/maintenance",
+      "title": "Manutenções",
+      "file": "src/screens/MaintenanceScreen"
+    },
+    {
+      "id": "audits",
+      "route": "/audits",
+      "title": "Auditorias",
+      "file": "src/screens/AuditsScreen"
+    },
+    {
+      "id": "suppliers",
+      "route": "/suppliers",
+      "title": "Fornecedores",
+      "file": "src/screens/SuppliersScreen"
+    },
+    {
+      "id": "departments",
+      "route": "/departments",
+      "title": "Departamentos",
+      "file": "src/screens/DepartmentsScreen"
+    },
+    {
+      "id": "categories",
+      "route": "/categories",
+      "title": "Categorias",
+      "file": "src/screens/CategoriesScreen"
+    },
+    {
+      "id": "settings",
+      "route": "/settings",
+      "title": "Configurações",
+      "file": "src/screens/SettingsScreen"
+    },
+    { "id": "login", "route": "/", "title": "Entrar", "file": "src/screens/LoginScreen" },
+    {
+      "id": "register",
+      "route": "/register",
+      "title": "Criar workspace",
+      "file": "src/screens/RegisterScreen"
+    }
+  ],
+  "editable": {
+    "allow": [
+      "src/screens/**",
+      "src/modules/**",
+      "src/layouts/**",
+      "src/components/RequireAuth.tsx",
+      "src/shared/**",
+      "src/lib/data/*.repo.ts",
+      "src/mock/notifications.ts",
+      "src/styles.css"
+    ],
+    "protect": [
+      "src/lib/data/client.ts",
+      "src/lib/data/types.gen.ts",
+      "src/lib/data/preview-fixtures.ts",
+      "src/lib/auth.tsx",
+      "src/main.tsx",
+      "src/App.tsx",
+      "src/app.routes.tsx",
+      "src/components/ui/**",
+      "src/lib/utils.ts",
+      "vite.config.ts",
+      "components.json",
+      "supabase/migrations/**"
+    ]
+  },
+  "composio": { "toolkits": [] },
+  "envContract": ["VITE_GATEWAY_URL"]
+}

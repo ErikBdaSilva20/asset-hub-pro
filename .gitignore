@@ -20,6 +20,11 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Env files (segredos locais — .env.example fica versionado)
+.env
+.env.local
+dev-gateway/.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -30,3 +35,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Ferramentas locais (não fazem parte do código do AssetHub)
+.claude/
+_bmad/
+_bmad-output/

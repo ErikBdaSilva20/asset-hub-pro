@@ -169,7 +169,10 @@ export function DataTable<T>({
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className={cn("px-4 py-2.5 align-middle", column.align === "right" && "text-right")}
+                      className={cn(
+                        "px-4 py-2.5 align-middle",
+                        column.align === "right" && "text-right",
+                      )}
                     >
                       {column.cell(row)}
                     </td>

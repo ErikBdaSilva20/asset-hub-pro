@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import {
   CommandDialog,
   CommandEmpty,
@@ -32,7 +32,7 @@ export function CommandPalette({
 
   const go = (to: string) => {
     onOpenChange(false);
-    navigate({ to });
+    navigate(to);
   };
 
   return (

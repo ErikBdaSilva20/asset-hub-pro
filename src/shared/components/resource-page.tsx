@@ -1,26 +1,40 @@
 import { useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Download, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageContainer, PageHeader } from "@/shared/components/page-header";
-import { DataTable, TableToolbar, type Column, type FilterOption } from "@/shared/components/data-table";
-import { Timeline } from "@/shared/components/timeline";
+import {
+  DataTable,
+  TableToolbar,
+  type Column,
+  type FilterOption,
+} from "@/shared/components/data-table";
+import { ResourceFormDialog, type FormFieldDef } from "@/shared/components/resource-form-dialog";
 import { useListState } from "@/shared/hooks/use-list-state";
 import { useResourceList } from "@/shared/hooks/use-resource-list";
-import type { Repository } from "@/shared/services/resource-repository";
-import { timeline } from "@/mock";
 
 interface ResourcePageProps<T extends { id: string }> {
   title: string;
   description: string;
   resource: string;
-  repository: Repository<T>;
+  list: () => Promise<T[]>;
+  statusOf?: (item: T) => string;
   columns: Column<T>[];
   statusOptions?: FilterOption[];
   searchPlaceholder?: string;
   createLabel?: string;
+  /** Config do formulário do modal "Novo X". Sem isso (ou sem onCreate), o botão fica desabilitado. */
+  createFields?: FormFieldDef[];
+  onCreate?: (input: Record<string, unknown>) => Promise<unknown>;
   detail?: (row: T) => { title: string; subtitle: string; content: ReactNode };
 }
 
@@ -28,17 +42,30 @@ export function ResourcePage<T extends { id: string }>({
   title,
   description,
   resource,
-  repository,
+  list: fetchList,
+  statusOf,
   columns,
   statusOptions,
   searchPlaceholder,
   createLabel = "Novo registro",
+  createFields,
+  onCreate,
   detail,
 }: ResourcePageProps<T>) {
   const list = useListState();
-  const query = useResourceList<T>(resource, repository, list.params);
+  const query = useResourceList<T>(resource, fetchList, list.params, statusOf);
   const [selected, setSelected] = useState<T | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const detailData = selected && detail ? detail(selected) : null;
+  const queryClient = useQueryClient();
+  const canCreate = Boolean(createFields && onCreate);
+
+  const handleCreate = async (values: Record<string, unknown>) => {
+    if (!onCreate) return;
+    await onCreate(values);
+    await queryClient.invalidateQueries({ queryKey: [resource, "list"] });
+    toast.success("Registro salvo com sucesso.");
+  };
 
   return (
     <PageContainer>
@@ -51,7 +78,7 @@ export function ResourcePage<T extends { id: string }>({
             <Button variant="outline" size="sm">
               <Download className="size-4" /> Exportar
             </Button>
-            <Button size="sm">
+            <Button size="sm" disabled={!canCreate} onClick={() => setCreateOpen(true)}>
               <Plus className="size-4" /> {createLabel}
             </Button>
           </>
@@ -92,28 +119,21 @@ export function ResourcePage<T extends { id: string }>({
                 <SheetTitle>{detailData.title}</SheetTitle>
                 <SheetDescription>{detailData.subtitle}</SheetDescription>
               </SheetHeader>
-              <ScrollArea className="h-[calc(100vh-96px)]">
-                <Tabs defaultValue="details" className="p-4">
-                  <TabsList>
-                    <TabsTrigger value="details">Detalhes</TabsTrigger>
-                    <TabsTrigger value="timeline">Timeline</TabsTrigger>
-                    <TabsTrigger value="history">Histórico</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="details" className="pt-4">
-                    {detailData.content}
-                  </TabsContent>
-                  <TabsContent value="timeline" className="pt-4">
-                    <Timeline entries={timeline.slice(0, 4)} />
-                  </TabsContent>
-                  <TabsContent value="history" className="pt-4">
-                    <Timeline entries={timeline.slice(4, 10)} />
-                  </TabsContent>
-                </Tabs>
-              </ScrollArea>
+              <ScrollArea className="h-[calc(100vh-96px)] p-4">{detailData.content}</ScrollArea>
             </>
           )}
         </SheetContent>
       </Sheet>
+
+      {canCreate && createFields && (
+        <ResourceFormDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          title={createLabel}
+          fields={createFields}
+          onSubmit={handleCreate}
+        />
+      )}
     </PageContainer>
   );
 }

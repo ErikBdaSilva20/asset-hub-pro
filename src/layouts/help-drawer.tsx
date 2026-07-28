@@ -1,9 +1,26 @@
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { helpTopics } from "@/shared/content/help";
 
-export function HelpDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function HelpDrawer({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-lg">
@@ -35,7 +52,9 @@ export function HelpDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
                   </div>
 
                   <div className="space-y-1.5">
-                    <p className="text-xs font-semibold tracking-wide uppercase">Melhores práticas</p>
+                    <p className="text-xs font-semibold tracking-wide uppercase">
+                      Melhores práticas
+                    </p>
                     <ul className="space-y-1">
                       {topic.bestPractices.map((item) => (
                         <li key={item} className="flex gap-2 text-xs text-muted-foreground">
@@ -49,7 +68,10 @@ export function HelpDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
                   <div className="space-y-1.5">
                     <p className="text-xs font-semibold tracking-wide uppercase">Atalhos</p>
                     {topic.shortcuts.map((shortcut) => (
-                      <div key={shortcut.keys} className="flex items-center justify-between text-xs">
+                      <div
+                        key={shortcut.keys}
+                        className="flex items-center justify-between text-xs"
+                      >
                         <span className="text-muted-foreground">{shortcut.action}</span>
                         <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
                           {shortcut.keys}

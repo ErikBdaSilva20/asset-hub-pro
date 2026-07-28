@@ -1,6 +1,11 @@
-import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { ArrowUpRight, CalendarClock, KeyRound, ShieldAlert, Wrench } from "lucide-react";
-import { activity, licenses, maintenanceOrders, movements, ppes, assets } from "@/mock";
+import { listAssets } from "@/lib/data/assets.repo";
+import { listLicenses } from "@/lib/data/licenses.repo";
+import { listMaintenanceOrders } from "@/lib/data/maintenance.repo";
+import { listMovements } from "@/lib/data/movements.repo";
+import { listPpes } from "@/lib/data/ppes.repo";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { MetricCard } from "@/shared/components/stat-card";
 import { UserChip } from "@/shared/components/avatar-group";
@@ -17,22 +22,37 @@ function PanelHeader({ title, to }: { title: string; to: string }) {
   );
 }
 
+function recentMovements<T extends { occurred_at: string }>(movements: T[], limit: number): T[] {
+  return [...movements]
+    .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
+    .slice(0, limit);
+}
+
 export function RecentMovements() {
+  const { data: movements = [] } = useQuery({
+    queryKey: ["movements", "list"],
+    queryFn: listMovements,
+  });
+  const recent = recentMovements(movements, 6);
+
   return (
     <div className="panel overflow-hidden">
       <PanelHeader title="Últimas movimentações" to="/movements" />
       <ul className="divide-y divide-border">
-        {movements.slice(0, 6).map((movement) => (
+        {recent.map((movement) => (
           <li key={movement.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{movement.assetName}</p>
+              <p className="truncate text-sm font-medium">{movement.asset_name}</p>
               <p className="truncate text-xs text-muted-foreground">
-                <span className="font-mono">{movement.assetTag}</span> · {movement.fromLabel} → {movement.toLabel}
+                <span className="font-mono">{movement.asset_tag}</span> · {movement.from_label} →{" "}
+                {movement.to_label}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">
               <StatusBadge status={movement.type} />
-              <span className="w-16 text-right text-xs text-muted-foreground">{formatRelative(movement.occurredAt)}</span>
+              <span className="w-16 text-right text-xs text-muted-foreground">
+                {formatRelative(movement.occurred_at)}
+              </span>
             </div>
           </li>
         ))}
@@ -41,15 +61,34 @@ export function RecentMovements() {
   );
 }
 
+const ACTIVITY_VERBS: Record<string, string> = {
+  checkout: "entregou",
+  checkin: "devolveu",
+  transfer: "transferiu",
+  maintenance: "enviou p/ manutenção",
+  disposal: "descartou",
+};
+
 export function RecentActivity() {
+  const { data: movements = [] } = useQuery({
+    queryKey: ["movements", "list"],
+    queryFn: listMovements,
+  });
+  const recent = recentMovements(movements, 6);
+
   return (
     <div className="panel overflow-hidden">
       <PanelHeader title="Atividades recentes" to="/movements" />
       <ul className="divide-y divide-border">
-        {activity.slice(0, 6).map((entry) => (
-          <li key={entry.id} className="flex items-center justify-between gap-3 px-4 py-2">
-            <UserChip name={entry.actor} subtitle={`${entry.action} ${entry.target}`} />
-            <span className="shrink-0 text-xs text-muted-foreground">{formatRelative(entry.at)}</span>
+        {recent.map((movement) => (
+          <li key={movement.id} className="flex items-center justify-between gap-3 px-4 py-2">
+            <UserChip
+              name={movement.performed_by ?? "—"}
+              subtitle={`${ACTIVITY_VERBS[movement.type] ?? movement.type} ${movement.asset_tag ?? ""}`}
+            />
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {formatRelative(movement.occurred_at)}
+            </span>
           </li>
         ))}
       </ul>
@@ -58,9 +97,16 @@ export function RecentActivity() {
 }
 
 export function ExpiringPanel() {
+  const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: licenses = [] } = useQuery({
+    queryKey: ["licenses", "list"],
+    queryFn: listLicenses,
+  });
+  const { data: ppes = [] } = useQuery({ queryKey: ["ppes", "list"], queryFn: listPpes });
+
   const warranties = assets
     .filter((asset) => {
-      const days = daysUntil(asset.warrantyUntil);
+      const days = daysUntil(asset.warranty_until);
       return days !== null && days > 0 && days < 120;
     })
     .slice(0, 4);
@@ -72,7 +118,9 @@ export function ExpiringPanel() {
     <div className="panel overflow-hidden">
       <div className="border-b border-border px-4 py-2.5">
         <h3 className="text-sm font-semibold">Itens vencendo</h3>
-        <p className="text-xs text-muted-foreground">Garantias, licenças e EPIs com prazo crítico</p>
+        <p className="text-xs text-muted-foreground">
+          Garantias, licenças e EPIs com prazo crítico
+        </p>
       </div>
       <div className="divide-y divide-border">
         <AlertGroup icon={CalendarClock} label="Garantias próximas">
@@ -81,7 +129,7 @@ export function ExpiringPanel() {
               key={asset.id}
               title={asset.name}
               subtitle={asset.tag}
-              value={`${daysUntil(asset.warrantyUntil)} dias`}
+              value={`${daysUntil(asset.warranty_until)} dias`}
             />
           ))}
         </AlertGroup>
@@ -90,15 +138,21 @@ export function ExpiringPanel() {
             <AlertRow
               key={license.id}
               title={license.name}
-              subtitle={license.vendor}
-              value={formatDate(license.renewalDate)}
+              subtitle={license.vendor ?? "—"}
+              value={formatDate(license.renewal_date)}
               status={license.status}
             />
           ))}
         </AlertGroup>
         <AlertGroup icon={ShieldAlert} label="EPIs">
           {expiringPpe.map((ppe) => (
-            <AlertRow key={ppe.id} title={ppe.name} subtitle={ppe.assignee} value={formatDate(ppe.expiresAt)} status={ppe.status} />
+            <AlertRow
+              key={ppe.id}
+              title={ppe.name}
+              subtitle={ppe.assignee ?? "—"}
+              value={formatDate(ppe.expires_at)}
+              status={ppe.status}
+            />
           ))}
         </AlertGroup>
       </div>
@@ -151,6 +205,11 @@ function AlertRow({
 }
 
 export function LicenseSeats() {
+  const { data: licenses = [] } = useQuery({
+    queryKey: ["licenses", "list"],
+    queryFn: listLicenses,
+  });
+
   return (
     <div className="panel overflow-hidden">
       <PanelHeader title="Licenças disponíveis" to="/licenses" />
@@ -159,9 +218,13 @@ export function LicenseSeats() {
           <MetricCard
             key={license.id}
             label={license.name}
-            value={license.seatsUsed}
-            total={license.seatsTotal}
-            tone={license.seatsUsed / license.seatsTotal > 0.9 ? "warning" : "primary"}
+            value={license.seats_used}
+            total={license.seats_total}
+            tone={
+              license.seats_total > 0 && license.seats_used / license.seats_total > 0.9
+                ? "warning"
+                : "primary"
+            }
           />
         ))}
       </div>
@@ -170,9 +233,11 @@ export function LicenseSeats() {
 }
 
 export function MaintenanceQueue() {
-  const queue = maintenanceOrders
-    .filter((order) => order.status !== "done")
-    .slice(0, 5);
+  const { data: maintenanceOrders = [] } = useQuery({
+    queryKey: ["maintenance_orders", "list"],
+    queryFn: listMaintenanceOrders,
+  });
+  const queue = maintenanceOrders.filter((order) => order.status !== "done").slice(0, 5);
 
   return (
     <div className="panel overflow-hidden">
@@ -183,13 +248,17 @@ export function MaintenanceQueue() {
             <div className="flex min-w-0 items-center gap-2">
               <Wrench className="size-3.5 shrink-0 text-muted-foreground" />
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{order.assetName}</p>
-                <p className="truncate font-mono text-xs text-muted-foreground">{order.code} · {order.assetTag}</p>
+                <p className="truncate text-sm font-medium">{order.asset_name}</p>
+                <p className="truncate font-mono text-xs text-muted-foreground">
+                  {order.code} · {order.asset_tag}
+                </p>
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-3">
               <StatusBadge status={order.status} />
-              <span className="tabular w-16 text-right text-xs text-muted-foreground">{formatDate(order.dueAt)}</span>
+              <span className="tabular w-16 text-right text-xs text-muted-foreground">
+                {formatDate(order.due_at)}
+              </span>
             </div>
           </li>
         ))}

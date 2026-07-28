@@ -1,10 +1,19 @@
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" });
-const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
-const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+});
+const currencyFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  maximumFractionDigits: 0,
+});
 const numberFormatter = new Intl.NumberFormat("pt-BR");
 
-export const formatDate = (value?: string | null) => (value ? dateFormatter.format(new Date(value)) : "—");
-export const formatDateTime = (value?: string | null) => (value ? dateTimeFormatter.format(new Date(value)) : "—");
+export const formatDate = (value?: string | null) =>
+  value ? dateFormatter.format(new Date(value)) : "—";
+export const formatDateTime = (value?: string | null) =>
+  value ? dateTimeFormatter.format(new Date(value)) : "—";
 export const formatCurrency = (value: number) => currencyFormatter.format(value);
 export const formatNumber = (value: number) => numberFormatter.format(value);
 

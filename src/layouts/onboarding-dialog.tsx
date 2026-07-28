@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { ArrowRight, Check } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { onboardingSteps } from "@/shared/content/help";
 import { cn } from "@/lib/utils";
@@ -18,7 +24,9 @@ export function OnboardingDialog({ open, onFinish }: { open: boolean; onFinish: 
             Primeiro acesso · passo {step + 1} de {onboardingSteps.length}
           </p>
           <DialogTitle>{current.title}</DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed">{current.description}</DialogDescription>
+          <DialogDescription className="text-sm leading-relaxed">
+            {current.description}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex gap-1.5">

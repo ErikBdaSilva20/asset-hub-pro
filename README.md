@@ -1,5 +1,19 @@
 # Asset Hub Pro
 
+## Desenvolvimento local (sem acesso ao tenant-gateway/Neon reais)
+
+Este repo inclui um `dev-gateway/` — uma réplica local do `tenant-gateway` (Better-Auth +
+`/data/:table` genérico) rodando contra um Postgres local via Docker. Serve pra desenvolver e
+testar o front de ponta a ponta sem depender da infra compartilhada do hub. Ver
+[`dev-gateway/README.md`](dev-gateway/README.md) para o passo a passo completo. Resumo:
+
+```bash
+docker compose up -d postgres
+cd dev-gateway && cp .env.example .env && npm install && npm run migrate && npm run dev
+# em outro terminal, na raiz:
+cp .env.example .env && npm install && npm run dev
+```
+
 # Prompt — AssetHub Enterprise Frontend
 
 

@@ -7,7 +7,9 @@ export function UserChip({ name, subtitle }: { name: string; subtitle?: string }
   return (
     <div className="flex items-center gap-2">
       <Avatar className="size-7 border border-border">
-        <AvatarFallback className="bg-muted text-[11px] font-medium">{initials(name)}</AvatarFallback>
+        <AvatarFallback className="bg-muted text-[11px] font-medium">
+          {initials(name)}
+        </AvatarFallback>
       </Avatar>
       <div className="leading-tight">
         <p className="text-sm font-medium">{name}</p>
@@ -27,14 +29,20 @@ export function AvatarGroup({ names, max = 4 }: { names: string[]; max?: number 
         <Tooltip key={name}>
           <TooltipTrigger asChild>
             <Avatar className="size-7 border-2 border-surface">
-              <AvatarFallback className="bg-muted text-[10px] font-medium">{initials(name)}</AvatarFallback>
+              <AvatarFallback className="bg-muted text-[10px] font-medium">
+                {initials(name)}
+              </AvatarFallback>
             </Avatar>
           </TooltipTrigger>
           <TooltipContent>{name}</TooltipContent>
         </Tooltip>
       ))}
       {rest > 0 && (
-        <span className={cn("flex size-7 items-center justify-center rounded-full border-2 border-surface bg-muted text-[10px] font-medium")}>
+        <span
+          className={cn(
+            "flex size-7 items-center justify-center rounded-full border-2 border-surface bg-muted text-[10px] font-medium",
+          )}
+        >
           +{rest}
         </span>
       )}

@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Area,
   AreaChart,
@@ -9,7 +11,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { assetsByCategory, monthlyMovements } from "@/mock";
+import { listAssets } from "@/lib/data/assets.repo";
+import { listMovements } from "@/lib/data/movements.repo";
 
 const axisProps = {
   stroke: "var(--color-muted-foreground)",
@@ -26,7 +29,48 @@ const tooltipStyle = {
   color: "var(--color-popover-foreground)",
 };
 
+const MONTH_LABELS = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+];
+
 export function MovementsChart() {
+  const { data: movements = [] } = useQuery({
+    queryKey: ["movements", "list"],
+    queryFn: listMovements,
+  });
+
+  const monthlyMovements = useMemo(() => {
+    const buckets = new Map<string, { month: string; entradas: number; saidas: number }>();
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const cursor = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      buckets.set(`${cursor.getFullYear()}-${cursor.getMonth()}`, {
+        month: MONTH_LABELS[cursor.getMonth()],
+        entradas: 0,
+        saidas: 0,
+      });
+    }
+    for (const movement of movements) {
+      const occurred = new Date(movement.occurred_at);
+      const bucket = buckets.get(`${occurred.getFullYear()}-${occurred.getMonth()}`);
+      if (!bucket) continue;
+      if (movement.type === "checkin") bucket.entradas += 1;
+      else if (movement.type === "checkout") bucket.saidas += 1;
+    }
+    return Array.from(buckets.values());
+  }, [movements]);
+
   return (
     <div className="panel p-4">
       <div className="mb-4 flex items-center justify-between">
@@ -60,8 +104,20 @@ export function MovementsChart() {
             <XAxis dataKey="month" {...axisProps} />
             <YAxis {...axisProps} />
             <ChartTooltip contentStyle={tooltipStyle} cursor={{ stroke: "var(--color-border)" }} />
-            <Area type="monotone" dataKey="entradas" stroke="var(--color-chart-1)" fill="url(#in)" strokeWidth={2} />
-            <Area type="monotone" dataKey="saidas" stroke="var(--color-chart-2)" fill="url(#out)" strokeWidth={2} />
+            <Area
+              type="monotone"
+              dataKey="entradas"
+              stroke="var(--color-chart-1)"
+              fill="url(#in)"
+              strokeWidth={2}
+            />
+            <Area
+              type="monotone"
+              dataKey="saidas"
+              stroke="var(--color-chart-2)"
+              fill="url(#out)"
+              strokeWidth={2}
+            />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -70,6 +126,17 @@ export function MovementsChart() {
 }
 
 export function CategoryChart() {
+  const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+
+  const assetsByCategory = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const asset of assets) {
+      const key = asset.category ?? "Sem categoria";
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return Array.from(counts, ([name, total]) => ({ name, total }));
+  }, [assets]);
+
   return (
     <div className="panel p-4">
       <div className="mb-4">
@@ -80,10 +147,22 @@ export function CategoryChart() {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={assetsByCategory} margin={{ left: -20, right: 4, top: 4 }}>
             <CartesianGrid vertical={false} stroke="var(--color-border)" />
-            <XAxis dataKey="name" {...axisProps} interval={0} angle={-25} textAnchor="end" height={60} />
+            <XAxis
+              dataKey="name"
+              {...axisProps}
+              interval={0}
+              angle={-25}
+              textAnchor="end"
+              height={60}
+            />
             <YAxis {...axisProps} />
             <ChartTooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--color-muted)" }} />
-            <Bar dataKey="total" fill="var(--color-chart-1)" radius={[4, 4, 0, 0]} maxBarSize={38} />
+            <Bar
+              dataKey="total"
+              fill="var(--color-chart-1)"
+              radius={[4, 4, 0, 0]}
+              maxBarSize={38}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>

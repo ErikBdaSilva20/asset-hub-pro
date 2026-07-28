@@ -18,7 +18,9 @@ export function StatCard({ label, value, hint, delta, icon: Icon, className }: S
   return (
     <div className={cn("panel flex flex-col gap-3 p-4", className)}>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</span>
+        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          {label}
+        </span>
         {Icon && <Icon className="size-4 text-muted-foreground" />}
       </div>
       <div className="flex items-end gap-2">

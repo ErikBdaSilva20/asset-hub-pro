@@ -1,5 +1,17 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, CircleHelp, LogOut, Moon, Search, Sun, User } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  Bell,
+  ChevronDown,
+  CircleHelp,
+  LogOut,
+  Menu,
+  Moon,
+  Search,
+  Sun,
+  User,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -10,16 +22,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { brandIcon as BrandIcon, navItems } from "./navigation";
+import { brandIcon as BrandIcon, navItems, type NavItem } from "./navigation";
 import { notifications } from "@/mock/notifications";
-import { formatRelative } from "@/shared/utils/format";
+import { formatRelative, initials } from "@/shared/utils/format";
+import { useAuth } from "@/lib/auth";
 
 interface AppHeaderProps {
   onOpenHelp: () => void;
@@ -28,32 +37,77 @@ interface AppHeaderProps {
   onToggleTheme: () => void;
 }
 
+const GROUP_LABELS: Record<NavItem["group"], string> = {
+  operacao: "Operação",
+  cadastros: "Cadastros",
+  sistema: "Sistema",
+};
+
 export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: AppHeaderProps) {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [navOpen, setNavOpen] = useState(false);
+
+  // Fecha o painel de navegação sempre que a rota muda (clique num item, back/forward, etc).
+  useEffect(() => {
+    setNavOpen(false);
+  }, [location.pathname]);
+
+  const activeItem = navItems.find((item) => location.pathname.startsWith(item.to));
+
+  const logout = async () => {
+    await signOut();
+    navigate("/");
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-surface/85 backdrop-blur">
-      <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-4 px-6">
-        <Link to="/dashboard" className="flex items-center gap-2">
+      <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-2 px-3 sm:gap-4 sm:px-6">
+        <Link to="/dashboard" className="flex shrink-0 items-center gap-2">
           <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <BrandIcon className="size-4" />
           </span>
-          <span className="text-sm font-semibold tracking-tight">
+          <span className="hidden text-sm font-semibold tracking-tight sm:inline">
             Asset<span className="text-primary">Hub</span>
           </span>
-          <span className="ml-1 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          <span className="hidden rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground lg:inline">
             ENTERPRISE
           </span>
         </Link>
 
         <button
-          onClick={onOpenSearch}
-          className="mx-auto flex h-8 w-full max-w-md items-center gap-2 rounded-md border border-border bg-muted/60 px-3 text-xs text-muted-foreground transition-colors hover:bg-muted"
+          onClick={() => setNavOpen((open) => !open)}
+          aria-expanded={navOpen}
+          aria-label="Navegação"
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium transition-colors",
+            navOpen
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
         >
-          <Search className="size-3.5" />
-          Buscar ativos, colaboradores, licenças…
-          <kbd className="ml-auto rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+          {navOpen ? <X className="size-3.5" /> : <Menu className="size-3.5" />}
+          <span className="hidden sm:inline">{activeItem?.label ?? "Menu"}</span>
+          <ChevronDown className={cn("size-3.5 transition-transform", navOpen && "rotate-180")} />
         </button>
 
-        <div className="flex items-center gap-1">
+        <button
+          onClick={onOpenSearch}
+          className="hidden h-8 flex-1 items-center gap-2 rounded-md border border-border bg-muted/60 px-3 text-xs text-muted-foreground transition-colors hover:bg-muted md:flex md:max-w-md"
+        >
+          <Search className="size-3.5 shrink-0" />
+          <span className="truncate">Buscar ativos, colaboradores, licenças…</span>
+          <kbd className="ml-auto shrink-0 rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[10px]">
+            ⌘K
+          </kbd>
+        </button>
+
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
+          <Button variant="ghost" size="sm" className="size-8 p-0 md:hidden" onClick={onOpenSearch}>
+            <Search className="size-4" />
+          </Button>
+
           <NotificationsMenu />
 
           <Tooltip>
@@ -67,7 +121,12 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" className="size-8 p-0" onClick={onOpenHelp}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hidden size-8 p-0 sm:inline-flex"
+                onClick={onOpenHelp}
+              >
                 <CircleHelp className="size-4" />
               </Button>
             </TooltipTrigger>
@@ -78,14 +137,18 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="ml-1 h-8 gap-2 px-1.5">
                 <Avatar className="size-6">
-                  <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">MD</AvatarFallback>
+                  <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
+                    {user?.name
+                      ? initials(user.name)
+                      : (user?.email?.slice(0, 2).toUpperCase() ?? "?")}
+                  </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="font-normal">
-                <p className="text-sm font-medium">Marina Duarte</p>
-                <p className="text-xs text-muted-foreground">marina.duarte@assethub.co</p>
+                <p className="text-sm font-medium">{user?.name ?? "Minha conta"}</p>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
@@ -94,18 +157,19 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
               <DropdownMenuItem asChild>
                 <Link to="/settings">Configurações</Link>
               </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenHelp} className="sm:hidden">
+                <CircleHelp className="size-4" /> Guia do sistema
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/">
-                  <LogOut className="size-4" /> Sair
-                </Link>
+              <DropdownMenuItem onSelect={logout}>
+                <LogOut className="size-4" /> Sair
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      <TopBar />
+      {navOpen && <NavPanel onNavigate={() => setNavOpen(false)} />}
     </header>
   );
 }
@@ -135,7 +199,11 @@ function NotificationsMenu() {
                 <span
                   className={cn(
                     "mt-1.5 size-1.5 shrink-0 rounded-full",
-                    item.severity === "critical" ? "bg-destructive" : item.severity === "warning" ? "bg-warning" : "bg-info",
+                    item.severity === "critical"
+                      ? "bg-destructive"
+                      : item.severity === "warning"
+                        ? "bg-warning"
+                        : "bg-info",
                   )}
                 />
                 <div className="space-y-0.5">
@@ -152,30 +220,50 @@ function NotificationsMenu() {
   );
 }
 
-function TopBar() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
+/** Painel colapsável de navegação: fica escondido até o usuário clicar no trigger no header,
+ * então expande abaixo mostrando todas as rotas agrupadas, roláveis verticalmente. Substitui a
+ * antiga barra horizontal (que estourava a viewport e virava scrollbar nativa quebrada). */
+function NavPanel({ onNavigate }: { onNavigate: () => void }) {
+  const { pathname } = useLocation();
+  const groups: NavItem["group"][] = ["operacao", "cadastros", "sistema"];
 
   return (
-    <nav className="border-t border-border">
-      <div className="mx-auto flex w-full max-w-[1600px] items-center gap-0.5 overflow-x-auto px-4">
-        {navItems.map((item) => {
-          const active = pathname.startsWith(item.to);
+    <div className="border-t border-border bg-surface">
+      <div className="mx-auto max-h-[min(70vh,32rem)] w-full max-w-[1600px] overflow-y-auto px-4 py-4 sm:px-6">
+        {groups.map((group) => {
+          const items = navItems.filter((item) => item.group === group);
+          if (items.length === 0) return null;
+
           return (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={cn(
-                "relative flex items-center gap-1.5 px-2.5 py-2.5 text-xs font-medium whitespace-nowrap transition-colors",
-                active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <item.icon className="size-3.5" />
-              {item.label}
-              {active && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary" />}
-            </Link>
+            <div key={group} className="mb-4 last:mb-0">
+              <p className="mb-2 px-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                {GROUP_LABELS[group]}
+              </p>
+              <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-4">
+                {items.map((item) => {
+                  const active = pathname.startsWith(item.to);
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={onNavigate}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                    >
+                      <item.icon className="size-4 shrink-0" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </div>
-    </nav>
+    </div>
   );
 }
