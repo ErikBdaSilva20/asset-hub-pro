@@ -4,6 +4,7 @@ import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
 import type { Column } from "@/shared/components/data-table";
 import { createLicense, listLicenses, type License } from "@/lib/data/licenses.repo";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
+import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
 
 const mono = (value: string | null) => <span className="font-mono text-xs">{value ?? "—"}</span>;
 const muted = (value: string | null) => (
@@ -25,6 +26,7 @@ const columns: Column<License>[] = [
     cell: (row) => <span className="font-medium">{row.name}</span>,
   },
   { key: "vendor", header: "Fornecedor", cell: (row) => muted(row.vendor) },
+  { key: "assignee", header: "Responsável", cell: (row) => muted(row.assignee) },
   {
     key: "seats",
     header: "Assentos",
@@ -64,21 +66,30 @@ const createFields: FormFieldDef[] = [
   { name: "renewal_date", label: "Renovação", type: "date" },
   { name: "annual_cost", label: "Custo anual", type: "number", defaultValue: 0 },
   { name: "owner_department", label: "Departamento" },
+  { name: "assignee", label: "Responsável" },
 ];
 
 export function LicensesScreen() {
+  const { list, readOnly, emptyState } = useRoleScopedResource(
+    listLicenses,
+    (row) => row.assignee_id,
+  );
+
   return (
     <ResourcePage
       title="Licenças"
       description="Contratos de software, assentos consumidos, renovação e custo anual."
       resource="licenses"
-      list={listLicenses}
+      list={list}
       statusOf={(row) => row.status}
       createLabel="Nova licença"
       createFields={createFields}
       onCreate={(values) => createLicense(values as Partial<License>)}
       statusOptions={statusOptions}
       columns={columns}
+      readOnly={readOnly}
+      emptyTitle={emptyState?.title}
+      emptyDescription={emptyState?.description}
       detail={(row) => ({
         title: row.name,
         subtitle: `${row.vendor ?? "—"} · ${row.owner_department ?? "—"}`,
@@ -91,6 +102,7 @@ export function LicensesScreen() {
               { label: "Renovação", value: formatDate(row.renewal_date) },
               { label: "Custo anual", value: formatCurrency(row.annual_cost) },
               { label: "Departamento", value: row.owner_department ?? "—" },
+              { label: "Responsável", value: row.assignee ?? "—" },
             ]}
           />
         ),

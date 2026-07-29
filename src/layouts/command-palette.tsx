@@ -8,7 +8,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { navItems } from "./navigation";
+import { useAuth } from "@/lib/auth";
+import { getNavItems } from "./navigation";
 
 export function CommandPalette({
   open,
@@ -18,6 +19,8 @@ export function CommandPalette({
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
+  const { role } = useAuth();
+  const navItems = getNavItems(role);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {

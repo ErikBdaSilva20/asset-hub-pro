@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { admin } from "better-auth/plugins";
 import { pool } from "./db";
 
 const corsOrigins = (
@@ -19,6 +20,12 @@ export const auth = betterAuth({
       secure: false,
     },
   },
+  // Plugin "admin" do Better-Auth — é o que a tela /users (src/screens/UsersScreen.tsx) espera
+  // encontrar em produção (/api/auth/admin/list-users, /api/auth/admin/set-role). `adminRoles`
+  // default já é ["admin"], que bate com o valor que já usamos — sem isso, o gateway real
+  // devolve 404 pra essas rotas (foi o que aconteceu ao testar contra o gateway de verdade, ver
+  // GATEWAY-ADMIN-ENDPOINTS.md na raiz do repo).
+  plugins: [admin()],
   user: {
     additionalFields: {
       role: {

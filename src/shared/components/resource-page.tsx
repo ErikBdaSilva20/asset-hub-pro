@@ -36,6 +36,18 @@ interface ResourcePageProps<T extends { id: string }> {
   createFields?: FormFieldDef[];
   onCreate?: (input: Record<string, unknown>) => Promise<unknown>;
   detail?: (row: T) => { title: string; subtitle: string; content: ReactNode };
+  /** Força o botão "Novo X" a ficar escondido/desabilitado independente de `createFields`/
+   * `onCreate` — pra papéis que só consultam (ex.: `rep` em tabelas lookup, ver
+   * `useRoleScopedResource`). Diferente de omitir `createFields`: aquilo é "esta tela não tem
+   * criação"; isto é "esta sessão não tem permissão pra criar". */
+  readOnly?: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  errorTitle?: string;
+  errorDescription?: string;
+  /** Repassado pro React Query. `false` pra fontes sabidamente indisponíveis (ver
+   * `useResourceList`) — evita insistir sozinho num erro que já sabemos que vai repetir. */
+  retry?: boolean | number;
 }
 
 export function ResourcePage<T extends { id: string }>({
@@ -51,14 +63,20 @@ export function ResourcePage<T extends { id: string }>({
   createFields,
   onCreate,
   detail,
+  readOnly = false,
+  emptyTitle,
+  emptyDescription,
+  errorTitle,
+  errorDescription,
+  retry,
 }: ResourcePageProps<T>) {
   const list = useListState();
-  const query = useResourceList<T>(resource, fetchList, list.params, statusOf);
+  const query = useResourceList<T>(resource, fetchList, list.params, statusOf, { retry });
   const [selected, setSelected] = useState<T | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const detailData = selected && detail ? detail(selected) : null;
   const queryClient = useQueryClient();
-  const canCreate = Boolean(createFields && onCreate);
+  const canCreate = Boolean(createFields && onCreate) && !readOnly;
 
   const handleCreate = async (values: Record<string, unknown>) => {
     if (!onCreate) return;
@@ -78,9 +96,11 @@ export function ResourcePage<T extends { id: string }>({
             <Button variant="outline" size="sm">
               <Download className="size-4" /> Exportar
             </Button>
-            <Button size="sm" disabled={!canCreate} onClick={() => setCreateOpen(true)}>
-              <Plus className="size-4" /> {createLabel}
-            </Button>
+            {!readOnly && (
+              <Button size="sm" disabled={!canCreate} onClick={() => setCreateOpen(true)}>
+                <Plus className="size-4" /> {createLabel}
+              </Button>
+            )}
           </>
         }
       />
@@ -94,6 +114,10 @@ export function ResourcePage<T extends { id: string }>({
         isFetching={query.isFetching}
         isError={query.isError}
         onRetry={() => query.refetch()}
+        errorTitle={errorTitle}
+        errorDescription={errorDescription}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
         page={query.data?.page}
         pageSize={query.data?.pageSize}
         total={query.data?.total ?? 0}

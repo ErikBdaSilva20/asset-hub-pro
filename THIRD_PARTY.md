@@ -1,7 +1,7 @@
 # Third-party
 
 Domínio e telas do AssetHub são originais — nenhum código ou markup foi copiado de um
-projeto OSS externo (não é port de um repositório de terceiros, ver `Importantdoc.md` §A2).
+projeto OSS externo (não é port de um repositório de terceiros).
 
 Bibliotecas de UI usadas (todas MIT, instaladas via `package.json`, não copiadas manualmente):
 

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "engine": "vite-react-gateway",
   "schemaVersion": 1,
-  "migrations": ["0001_business_schema.sql"],
+  "migrations": ["0001_business_schema.sql", "0002_rbac_visibility.sql"],
   "auth": { "provider": "better-auth", "roles": ["admin", "manager", "rep"] },
   "screens": [
     {
@@ -69,6 +69,12 @@
       "route": "/categories",
       "title": "Categorias",
       "file": "src/screens/CategoriesScreen"
+    },
+    {
+      "id": "users",
+      "route": "/users",
+      "title": "Usuários",
+      "file": "src/screens/UsersScreen"
     },
     {
       "id": "settings",

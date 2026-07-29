@@ -9,7 +9,9 @@ export interface HelpTopic {
   description: string;
   howTo: string[];
   bestPractices: string[];
-  shortcuts: Array<{ keys: string; action: string }>;
+  /** Pra onde a informação cadastrada aqui se espalha, e por quê — não são atalhos de teclado
+   * (não tínhamos nenhum de verdade além do ⌘K), é o mapa de "isso aqui afeta aquilo ali". */
+  relatedTo: Array<{ topicId: string; note: string }>;
 }
 
 export const helpTopics: HelpTopic[] = [
@@ -27,7 +29,11 @@ export const helpTopics: HelpTopic[] = [
       "Revise os vencimentos de garantia e licença semanalmente.",
       "Trate divergências de auditoria antes do fechamento do mês.",
     ],
-    shortcuts: [{ keys: "G depois D", action: "Ir para o Dashboard" }],
+    relatedTo: [
+      { topicId: "assets", note: "Ativos totais, em uso e valor patrimonial vêm de Ativos" },
+      { topicId: "movements", note: "O gráfico de entradas/saídas vem de Movimentações" },
+      { topicId: "maintenance", note: '"Manutenções abertas" vem de Manutenções' },
+    ],
   },
   {
     id: "assets",
@@ -36,16 +42,23 @@ export const helpTopics: HelpTopic[] = [
       "Registro central de todo item patrimonial: notebooks, desktops, celulares, móveis, ferramentas e veículos.",
     howTo: [
       "Cadastre com etiqueta, número de série, categoria, fornecedor e valor de compra.",
-      "Abra o drawer de detalhes para ver ficha técnica, timeline e histórico.",
+      "Abra o drawer de detalhes para ver ficha técnica e histórico.",
       "Use filtros de status para separar disponíveis, em uso e em manutenção.",
     ],
     bestPractices: [
       "Padronize a etiqueta (AH-0000) e nunca reutilize código de item baixado.",
       "Anexe nota fiscal e termo de responsabilidade em toda entrega.",
     ],
-    shortcuts: [
-      { keys: "⌘ K", action: "Command palette" },
-      { keys: "/", action: "Focar na busca" },
+    relatedTo: [
+      { topicId: "categories", note: "O campo Categoria usa o texto cadastrado em Categorias" },
+      {
+        topicId: "movements",
+        note: "Toda entrega/devolução deste ativo vira uma Movimentação vinculada a ele",
+      },
+      {
+        topicId: "maintenance",
+        note: "Ordens de serviço abertas ficam vinculadas a este ativo",
+      },
     ],
   },
   {
@@ -60,7 +73,33 @@ export const helpTopics: HelpTopic[] = [
       "Mantenha o departamento atualizado — ele define o rateio de custo.",
       "Bloqueie novas entregas para colaboradores desligados.",
     ],
-    shortcuts: [{ keys: "G depois C", action: "Ir para Colaboradores" }],
+    relatedTo: [
+      {
+        topicId: "departments",
+        note: "O campo Departamento usa o texto cadastrado em Departamentos",
+      },
+      { topicId: "assets", note: "O nome aparece como Responsável quando um ativo é entregue" },
+      { topicId: "ppe", note: "O nome aparece como Colaborador ao registrar entrega de EPI" },
+    ],
+  },
+  {
+    id: "equipment",
+    title: "Equipamentos",
+    description:
+      "Recorte de TI e ferramentas dentro de Ativos: notebooks, desktops, periféricos e ferramentas. É a mesma tabela de Ativos, só filtrada — cadastrar aqui ou em Ativos dá no mesmo.",
+    howTo: [
+      "Use esta tela quando o time de TI só precisa ver o parque de equipamentos, sem mobiliário/frota/EPI junto.",
+      "Um item criado aqui aparece automaticamente em Ativos também (e vice-versa, se o tipo bater).",
+    ],
+    bestPractices: [
+      "Cadastre o tipo certo (notebook/desktop/periférico/ferramenta) — é ele que decide se o item aparece aqui.",
+    ],
+    relatedTo: [
+      {
+        topicId: "assets",
+        note: "É a mesma tabela — cadastrar/editar aqui reflete lá e vice-versa",
+      },
+    ],
   },
   {
     id: "movements",
@@ -74,7 +113,13 @@ export const helpTopics: HelpTopic[] = [
       "Nunca edite uma movimentação: registre a contrapartida.",
       "Descreva o motivo em transferências entre departamentos.",
     ],
-    shortcuts: [{ keys: "G depois M", action: "Ir para Movimentações" }],
+    relatedTo: [
+      { topicId: "assets", note: "Toda movimentação exige um ativo já cadastrado" },
+      {
+        topicId: "dashboard",
+        note: 'Alimenta o gráfico de entradas/saídas e as "Atividades recentes"',
+      },
+    ],
   },
   {
     id: "licenses",
@@ -88,7 +133,13 @@ export const helpTopics: HelpTopic[] = [
       "Revogue assentos no desligamento do colaborador.",
       "Revise licenças sem alocação a cada trimestre.",
     ],
-    shortcuts: [{ keys: "G depois L", action: "Ir para Licenças" }],
+    relatedTo: [
+      {
+        topicId: "departments",
+        note: "O campo Departamento usa o texto cadastrado em Departamentos",
+      },
+      { topicId: "dashboard", note: 'Licenças vencendo aparecem no painel "Itens vencendo"' },
+    ],
   },
   {
     id: "ppe",
@@ -102,7 +153,10 @@ export const helpTopics: HelpTopic[] = [
       "Mantenha estoque mínimo por tamanho e tipo.",
       "Guarde a assinatura da ficha de EPI para fiscalização.",
     ],
-    shortcuts: [{ keys: "G depois E", action: "Ir para EPIs" }],
+    relatedTo: [
+      { topicId: "employees", note: "O campo Colaborador usa o nome cadastrado em Colaboradores" },
+      { topicId: "dashboard", note: 'EPIs vencendo aparecem no painel "Itens vencendo"' },
+    ],
   },
   {
     id: "maintenance",
@@ -116,7 +170,11 @@ export const helpTopics: HelpTopic[] = [
       "Priorize ordens atrasadas antes de novas preventivas.",
       "Compare custo acumulado com valor residual antes de reparar.",
     ],
-    shortcuts: [{ keys: "G depois N", action: "Ir para Manutenções" }],
+    relatedTo: [
+      { topicId: "assets", note: "Toda ordem exige um ativo já cadastrado" },
+      { topicId: "suppliers", note: "O campo Fornecedor usa o texto cadastrado em Fornecedores" },
+      { topicId: "dashboard", note: 'Ordens em aberto contam pro card "Manutenções abertas"' },
+    ],
   },
   {
     id: "audits",
@@ -130,7 +188,66 @@ export const helpTopics: HelpTopic[] = [
       "Audite categorias de alto valor a cada trimestre.",
       "Encerre o ciclo somente com todas as divergências tratadas.",
     ],
-    shortcuts: [{ keys: "G depois A", action: "Ir para Auditorias" }],
+    relatedTo: [],
+  },
+  {
+    id: "suppliers",
+    title: "Fornecedores",
+    description: "Parceiros de compra, contrato e manutenção vinculados ao patrimônio.",
+    howTo: [
+      "Cadastre CNPJ, contato e categoria antes de vincular um fornecedor a ativos ou manutenções.",
+      'O nome do fornecedor aqui é o mesmo texto usado no campo "Fornecedor" de Ativos e no campo "Fornecedor" de Manutenções.',
+    ],
+    bestPractices: [
+      "Mantenha o contrato até atualizado — é ele que aparece nos alertas do Dashboard.",
+      "Revise fornecedores sem ativos ativos a cada semestre.",
+    ],
+    relatedTo: [
+      { topicId: "assets", note: "Aparece no campo Fornecedor ao cadastrar um ativo" },
+      { topicId: "maintenance", note: "Aparece no campo Fornecedor ao abrir uma ordem de serviço" },
+    ],
+  },
+  {
+    id: "departments",
+    title: "Departamentos",
+    description: "Estrutura organizacional, centros de custo e distribuição de ativos.",
+    howTo: [
+      "Cadastre o departamento antes de vincular colaboradores ou ativos a ele.",
+      'O nome aqui é o mesmo texto que aparece no campo "Departamento" de Ativos, Colaboradores e EPIs.',
+    ],
+    bestPractices: [
+      'Use o mesmo nome de departamento em todas as telas — nomes diferentes (ex: "TI" vs "Engenharia") viram grupos separados nos relatórios.',
+    ],
+    relatedTo: [
+      { topicId: "assets", note: "Aparece no campo Departamento ao cadastrar um ativo" },
+      { topicId: "employees", note: "Aparece no campo Departamento ao cadastrar um colaborador" },
+      { topicId: "licenses", note: "Aparece no campo Departamento (dono da licença)" },
+    ],
+  },
+  {
+    id: "categories",
+    title: "Categorias",
+    description: "Taxonomia dos ativos, regras de depreciação e exigência de manutenção.",
+    howTo: [
+      'Cadastre a categoria com o mesmo "Tipo" (kind) que você vai usar ao criar ativos — é isso que liga uma coisa na outra.',
+      '"Exige manutenção" é só informativo por enquanto — não bloqueia nada automaticamente.',
+    ],
+    bestPractices: ["Defina o prazo de depreciação junto do time financeiro antes de cadastrar."],
+    relatedTo: [{ topicId: "assets", note: "Aparece no campo Categoria ao cadastrar um ativo" }],
+  },
+  {
+    id: "settings",
+    title: "Configurações",
+    description:
+      "Status da conexão com o tenant-gateway, sua conta e políticas gerais do inventário.",
+    howTo: [
+      'Confira aqui se o app está de fato conectado ao gateway (variável VITE_GATEWAY_URL) antes de reportar um bug de "dado sumiu".',
+      "Seu papel (admin/manager/rep) aparece aqui — é ele que decide se você vê só os seus registros ou os de todo mundo.",
+    ],
+    bestPractices: [
+      'Se "Status" disser "Gateway não configurado", nenhuma tela vai carregar dado nenhum — comece por aí.',
+    ],
+    relatedTo: [],
   },
 ];
 

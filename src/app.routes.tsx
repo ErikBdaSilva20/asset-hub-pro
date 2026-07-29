@@ -17,6 +17,7 @@ import { AuditsScreen } from "@/screens/AuditsScreen";
 import { SuppliersScreen } from "@/screens/SuppliersScreen";
 import { DepartmentsScreen } from "@/screens/DepartmentsScreen";
 import { CategoriesScreen } from "@/screens/CategoriesScreen";
+import { UsersScreen } from "@/screens/UsersScreen";
 
 export function AppRoutes() {
   return (
@@ -45,6 +46,14 @@ export function AppRoutes() {
         <Route path="/suppliers" element={<SuppliersScreen />} />
         <Route path="/departments" element={<DepartmentsScreen />} />
         <Route path="/categories" element={<CategoriesScreen />} />
+        <Route
+          path="/users"
+          element={
+            <RequireAuth roles={["admin"]}>
+              <UsersScreen />
+            </RequireAuth>
+          }
+        />
         <Route path="/settings" element={<SettingsScreen />} />
       </Route>
 

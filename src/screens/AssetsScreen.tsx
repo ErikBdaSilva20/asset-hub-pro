@@ -4,6 +4,7 @@ import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
 import type { Column } from "@/shared/components/data-table";
 import { createAsset, listAssets, type Asset } from "@/lib/data/assets.repo";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
+import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
 
 const mono = (value: string | null) => <span className="font-mono text-xs">{value ?? "—"}</span>;
 const muted = (value: string | null) => (
@@ -112,12 +113,17 @@ export function assetDetail(row: Asset) {
 }
 
 export function AssetsScreen() {
+  const { list, readOnly, emptyState } = useRoleScopedResource(
+    listAssets,
+    (row) => row.assignee_id,
+  );
+
   return (
     <ResourcePage
       title="Ativos"
       description="Registro central do patrimônio, com status, alocação e ciclo de vida completo."
       resource="assets"
-      list={listAssets}
+      list={list}
       statusOf={(row) => row.status}
       columns={assetColumns}
       statusOptions={assetStatusOptions}
@@ -125,6 +131,9 @@ export function AssetsScreen() {
       createFields={buildAssetFields()}
       onCreate={(values) => createAsset(values as Partial<Asset>)}
       detail={assetDetail}
+      readOnly={readOnly}
+      emptyTitle={emptyState?.title}
+      emptyDescription={emptyState?.description}
     />
   );
 }

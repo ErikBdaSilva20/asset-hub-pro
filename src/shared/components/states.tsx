@@ -34,12 +34,20 @@ export function EmptyState({
   );
 }
 
-export function ErrorState({ onRetry }: { onRetry?: () => void }) {
+export function ErrorState({
+  title = "Não foi possível carregar os dados",
+  description = "A requisição falhou. Verifique a conexão com a API e tente novamente.",
+  onRetry,
+}: {
+  title?: string;
+  description?: string;
+  onRetry?: () => void;
+}) {
   return (
     <EmptyState
       icon={AlertTriangle}
-      title="Não foi possível carregar os dados"
-      description="A requisição falhou. Verifique a conexão com a API e tente novamente."
+      title={title}
+      description={description}
       actionLabel={onRetry ? "Tentar novamente" : undefined}
       onAction={onRetry}
     />

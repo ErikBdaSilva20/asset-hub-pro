@@ -4,6 +4,7 @@
 // exemplo, para que o preview nunca renderize as telas no estado vazio.
 
 import type { Database } from "./types.gen";
+import type { AdminUserSummary } from "./client";
 
 type Department = Database["public"]["Tables"]["departments"]["Row"];
 type Category = Database["public"]["Tables"]["categories"]["Row"];
@@ -84,7 +85,6 @@ const previewEmployees: Employee[] = [
 const previewAssets: Asset[] = [
   {
     id: "preview-asset-1",
-    owner_id: PREVIEW_OWNER_ID,
     tag: "AH-0001",
     name: "MacBook Pro 14",
     kind: "notebook",
@@ -113,7 +113,6 @@ const previewAssets: Asset[] = [
 const previewLicenses: License[] = [
   {
     id: "preview-lic-1",
-    owner_id: PREVIEW_OWNER_ID,
     name: "GitHub Enterprise",
     vendor: "GitHub",
     key: "PREVIEW-KEY-0001",
@@ -123,6 +122,8 @@ const previewLicenses: License[] = [
     renewal_date: now,
     annual_cost: 42000,
     owner_department: "Engenharia",
+    assignee_id: "preview-emp-1",
+    assignee: "Marina Duarte",
     created_at: now,
     updated_at: now,
   },
@@ -168,10 +169,10 @@ const previewMaintenanceOrders: MaintenanceOrder[] = [
 const previewPpes: Ppe[] = [
   {
     id: "preview-ppe-1",
-    owner_id: PREVIEW_OWNER_ID,
     name: "Capacete de segurança",
     ca: "CA-12345",
-    assignee: "Paula Ferraz",
+    assignee_id: "preview-emp-1",
+    assignee: "Marina Duarte",
     department: "Segurança do Trabalho",
     delivered_at: now,
     expires_at: now,
@@ -199,6 +200,22 @@ const previewAudits: Audit[] = [
   },
 ];
 
+// Fixture separado de `fixturesByTable` porque não é uma tabela `/data/:table` — é o mock dos
+// endpoints de admin do Better-Auth que a tela de Usuários consome (ver client.ts e
+// GATEWAY-ADMIN-ENDPOINTS.md pro porquê deles serem "melhor palpite", não confirmados). Mutado
+// em memória no `setRole` abaixo pra troca de papel parecer persistente dentro da sessão de
+// preview, sem precisar de storage nenhum.
+const previewAdminUsers: AdminUserSummary[] = [
+  { id: PREVIEW_OWNER_ID, name: "Ana Ribeiro", email: "ana.ribeiro@assethub.co", role: "admin" },
+  {
+    id: "preview-emp-1",
+    name: "Marina Duarte",
+    email: "marina.duarte@assethub.co",
+    role: "manager",
+  },
+  { id: "preview-user-3", name: "Paula Ferraz", email: "paula.ferraz@assethub.co", role: "rep" },
+];
+
 const fixturesByTable: Record<string, unknown[]> = {
   departments: previewDepartments,
   categories: previewCategories,
@@ -212,7 +229,18 @@ const fixturesByTable: Record<string, unknown[]> = {
   audits: previewAudits,
 };
 
-export function previewRequest<T>(method: string, path: string, _body?: unknown): Promise<T> {
+export function previewRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
+  if (path.startsWith("/api/auth/admin/list-users")) {
+    return Promise.resolve({ users: previewAdminUsers } as T);
+  }
+
+  if (path === "/api/auth/admin/set-role" && method === "POST") {
+    const { userId, role } = (body ?? {}) as { userId?: string; role?: AdminUserSummary["role"] };
+    const user = previewAdminUsers.find((candidate) => candidate.id === userId);
+    if (user && role) user.role = role;
+    return Promise.resolve({ user: user ?? null } as T);
+  }
+
   const match = path.match(/^\/data\/([a-z_]+)(?:\/(.+))?$/);
 
   if (!match) {

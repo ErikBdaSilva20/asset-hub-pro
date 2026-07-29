@@ -96,6 +96,8 @@ interface DataTableProps<T> {
   isFetching?: boolean;
   isError?: boolean;
   onRetry?: () => void;
+  errorTitle?: string;
+  errorDescription?: string;
   emptyTitle?: string;
   emptyDescription?: string;
   toolbar?: ReactNode;
@@ -114,6 +116,8 @@ export function DataTable<T>({
   isFetching,
   isError,
   onRetry,
+  errorTitle,
+  errorDescription,
   emptyTitle = "Nenhum registro encontrado",
   emptyDescription = "Ajuste os filtros ou a busca para ver outros resultados.",
   toolbar,
@@ -132,7 +136,7 @@ export function DataTable<T>({
       {isFetching && !isLoading && <LoadingOverlay />}
 
       {isError ? (
-        <ErrorState onRetry={onRetry} />
+        <ErrorState title={errorTitle} description={errorDescription} onRetry={onRetry} />
       ) : isLoading ? (
         <TableSkeleton columns={columns.length} />
       ) : rows.length === 0 ? (

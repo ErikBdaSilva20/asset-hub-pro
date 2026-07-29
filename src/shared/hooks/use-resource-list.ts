@@ -16,11 +16,16 @@ export function useResourceList<T extends { id: string }>(
   fetchList: () => Promise<T[]>,
   params: ListParams,
   statusOf?: (item: T) => string,
+  /** `retry: false` pra fontes que sabidamente não existem ainda (ex.: endpoint de admin não
+   * confirmado, ver GATEWAY-ADMIN-ENDPOINTS.md) — sem isso, o React Query insiste 3x sozinho
+   * num 404 que já sabemos que vai falhar de novo. Omitido = comportamento padrão da lib. */
+  options?: { retry?: boolean | number },
 ) {
   const query = useQuery<T[]>({
     queryKey: [resource, "list"],
     queryFn: fetchList,
     staleTime: 30_000,
+    retry: options?.retry,
   });
 
   const data = useMemo<Paginated<T> | undefined>(() => {

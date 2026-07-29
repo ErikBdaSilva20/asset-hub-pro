@@ -1,5 +1,6 @@
 import { ResourcePage } from "@/shared/components/resource-page";
 import { createAsset, listEquipment, EQUIPMENT_KINDS, type Asset } from "@/lib/data/assets.repo";
+import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
 import {
   assetColumns,
   assetDetail,
@@ -13,12 +14,17 @@ const equipmentKindOptions = assetKindOptions.filter((option) =>
 );
 
 export function EquipmentScreen() {
+  const { list, readOnly, emptyState } = useRoleScopedResource(
+    listEquipment,
+    (row) => row.assignee_id,
+  );
+
   return (
     <ResourcePage
       title="Equipamentos"
       description="Recorte de TI e ferramentas: notebooks, desktops, periféricos e ferramentas."
       resource="equipment"
-      list={listEquipment}
+      list={list}
       statusOf={(row) => row.status}
       columns={assetColumns}
       statusOptions={assetStatusOptions}
@@ -26,6 +32,9 @@ export function EquipmentScreen() {
       createFields={buildAssetFields(equipmentKindOptions)}
       onCreate={(values) => createAsset(values as Partial<Asset>)}
       detail={assetDetail}
+      readOnly={readOnly}
+      emptyTitle={emptyState?.title}
+      emptyDescription={emptyState?.description}
     />
   );
 }

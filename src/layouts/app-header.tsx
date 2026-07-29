@@ -1,19 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import {
-  Bell,
-  ChevronDown,
-  CircleHelp,
-  LogOut,
-  Menu,
-  Moon,
-  Search,
-  Sun,
-  User,
-  X,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,11 +10,27 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { brandIcon as BrandIcon, navItems, type NavItem } from "./navigation";
 import { notifications } from "@/mock/notifications";
 import { formatRelative, initials } from "@/shared/utils/format";
-import { useAuth } from "@/lib/auth";
+import { isAdmin } from "@/shared/utils/permissions";
+import {
+  Bell,
+  ChevronDown,
+  CircleHelp,
+  LogOut,
+  Menu,
+  Moon,
+  Search,
+  Sun,
+  User,
+  UserCog,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { brandIcon as BrandIcon, navItems, getNavItems, type NavItem } from "./navigation";
 
 interface AppHeaderProps {
   onOpenHelp: () => void;
@@ -38,16 +40,21 @@ interface AppHeaderProps {
 }
 
 const GROUP_LABELS: Record<NavItem["group"], string> = {
-  operacao: "Operação",
-  cadastros: "Cadastros",
+  geral: "",
+  dispositivos: "Dispositivos",
+  seguranca: "Segurança",
+  financeiro: "Financeiro",
+  organizacao: "Organização",
+  conformidade: "Conformidade",
   sistema: "Sistema",
 };
 
 export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: AppHeaderProps) {
-  const { user, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [navOpen, setNavOpen] = useState(false);
+  const visibleNavItems = getNavItems(role);
 
   // Fecha o painel de navegação sempre que a rota muda (clique num item, back/forward, etc).
   useEffect(() => {
@@ -76,21 +83,33 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
           </span>
         </Link>
 
-        <button
-          onClick={() => setNavOpen((open) => !open)}
-          aria-expanded={navOpen}
-          aria-label="Navegação"
-          className={cn(
-            "flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium transition-colors",
-            navOpen
-              ? "bg-muted text-foreground"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground",
-          )}
-        >
-          {navOpen ? <X className="size-3.5" /> : <Menu className="size-3.5" />}
-          <span className="hidden sm:inline">{activeItem?.label ?? "Menu"}</span>
-          <ChevronDown className={cn("size-3.5 transition-transform", navOpen && "rotate-180")} />
-        </button>
+        <Popover open={navOpen} onOpenChange={setNavOpen}>
+          <PopoverTrigger asChild>
+            <button
+              aria-label="Navegação"
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium transition-colors ",
+                navOpen
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer",
+              )}
+            >
+              {navOpen ? <X className="size-3.5" /> : <Menu className="size-3.5" />}
+              <span className="hidden sm:inline">{activeItem?.label ?? "Menu"}</span>
+              <ChevronDown
+                className={cn("size-3.5 transition-transform", navOpen && "rotate-180")}
+              />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            sideOffset={8}
+            collisionPadding={12}
+            className="max-h-[min(75vh,34rem)] w-[720px] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto p-3"
+          >
+            <NavPanel items={visibleNavItems} onNavigate={() => setNavOpen(false)} />
+          </PopoverContent>
+        </Popover>
 
         <button
           onClick={onOpenSearch}
@@ -157,6 +176,13 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
               <DropdownMenuItem asChild>
                 <Link to="/settings">Configurações</Link>
               </DropdownMenuItem>
+              {isAdmin(role) && (
+                <DropdownMenuItem asChild>
+                  <Link to="/users">
+                    <UserCog className="size-4" /> Usuários
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onSelect={onOpenHelp} className="sm:hidden">
                 <CircleHelp className="size-4" /> Guia do sistema
               </DropdownMenuItem>
@@ -168,8 +194,6 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
           </DropdownMenu>
         </div>
       </div>
-
-      {navOpen && <NavPanel onNavigate={() => setNavOpen(false)} />}
     </header>
   );
 }
@@ -220,50 +244,80 @@ function NotificationsMenu() {
   );
 }
 
-/** Painel colapsável de navegação: fica escondido até o usuário clicar no trigger no header,
- * então expande abaixo mostrando todas as rotas agrupadas, roláveis verticalmente. Substitui a
- * antiga barra horizontal (que estourava a viewport e virava scrollbar nativa quebrada). */
-function NavPanel({ onNavigate }: { onNavigate: () => void }) {
+/** Mega-menu de navegação: abre como popover ancorado no trigger do header (fecha sozinho em
+ * clique fora / Esc / troca de rota, via Radix Popover). Cada rota vira um cartão com ícone,
+ * nome e uma descrição de até 4 palavras — pra quem nunca clicou ali já saber pra que serve
+ * antes de entrar. Grade com largura mínima por coluna (auto-fill) em vez de breakpoints fixos,
+ * então se ajusta sozinha do popover estreito no mobile até a versão larga no desktop. */
+function NavPanel({ items, onNavigate }: { items: NavItem[]; onNavigate: () => void }) {
   const { pathname } = useLocation();
-  const groups: NavItem["group"][] = ["operacao", "cadastros", "sistema"];
+  const groups: NavItem["group"][] = [
+    "geral",
+    "dispositivos",
+    "seguranca",
+    "financeiro",
+    "organizacao",
+    "conformidade",
+    "sistema",
+  ];
 
   return (
-    <div className="border-t border-border bg-surface">
-      <div className="mx-auto max-h-[min(70vh,32rem)] w-full max-w-[1600px] overflow-y-auto px-4 py-4 sm:px-6">
-        {groups.map((group) => {
-          const items = navItems.filter((item) => item.group === group);
-          if (items.length === 0) return null;
+    <div className="space-y-3">
+      {groups.map((group) => {
+        const groupItems = items.filter((item) => item.group === group);
+        if (groupItems.length === 0) return null;
+        const label = GROUP_LABELS[group];
 
-          return (
-            <div key={group} className="mb-4 last:mb-0">
-              <p className="mb-2 px-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                {GROUP_LABELS[group]}
+        return (
+          <div key={group}>
+            {label && (
+              <p className="mb-1.5 px-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                {label}
               </p>
-              <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-4">
-                {items.map((item) => {
-                  const active = pathname.startsWith(item.to);
-                  return (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      onClick={onNavigate}
+            )}
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-1">
+              {groupItems.map((item) => {
+                const active = pathname.startsWith(item.to);
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={onNavigate}
+                    className={cn(
+                      "group flex items-start gap-2 rounded-lg border border-transparent px-2 py-1.5 transition-colors",
+                      active ? "bg-primary/10" : "hover:bg-muted",
+                    )}
+                  >
+                    <span
                       className={cn(
-                        "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md",
                         active
-                          ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground group-hover:bg-surface",
                       )}
                     >
-                      <item.icon className="size-4 shrink-0" />
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
+                      <item.icon className="size-3.5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span
+                        className={cn(
+                          "block truncate text-xs font-semibold",
+                          active ? "text-primary" : "text-foreground",
+                        )}
+                      >
+                        {item.label}
+                      </span>
+                      <span className="block text-[10.5px] leading-tight text-muted-foreground">
+                        {item.blurb}
+                      </span>
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

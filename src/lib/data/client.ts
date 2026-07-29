@@ -114,6 +114,27 @@ export interface GatewaySessionUser {
   role?: "admin" | "manager" | "rep";
 }
 
+// ⚠️ listUsers/setRole abaixo NÃO ESTÃO CONFIRMADOS contra o tenant-gateway real — ver
+// GATEWAY-ADMIN-ENDPOINTS.md na raiz do repo pro histórico completo e o passo a passo de
+// verificação. Resumo: pedimos documentação desses endpoints pro time do tenant-gateway e não
+// veio resposta; os caminhos/formatos abaixo seguem a convenção *padrão* do plugin "admin" do
+// Better-Auth (https://www.better-auth.com/docs/plugins/admin), mas ninguém confirmou que esse
+// plugin está habilitado no tenant-gateway, nem que está montado nesses caminhos exatos.
+// Antes de depender disto em produção: logue como admin, abra /users, e veja se lista/troca de
+// papel funcionam de verdade. Se der 404 ou formato de resposta diferente, o conserto é só
+// aqui — UsersScreen.tsx consome só `auth.listUsers`/`auth.setRole`, não sabe da rota por trás.
+export interface AdminUserSummary {
+  id: string;
+  name: string | null;
+  email: string;
+  role: "admin" | "manager" | "rep" | null;
+}
+
+interface AdminListUsersResponse {
+  users: AdminUserSummary[];
+  total?: number;
+}
+
 export const auth = {
   signIn: (email: string, password: string) =>
     api<{ user: GatewaySessionUser }>("POST", "/api/auth/sign-in/email", { email, password }),
@@ -121,4 +142,11 @@ export const auth = {
     api<{ user: GatewaySessionUser }>("POST", "/api/auth/sign-up/email", { email, password, name }),
   signOut: () => api<void>("POST", "/api/auth/sign-out"),
   me: () => api<{ user: GatewaySessionUser | null }>("GET", "/api/auth/get-session"),
+  // `?limit=200` é defensivo: várias implementações do plugin admin paginam com um limite
+  // pequeno por padrão (10~20), o que faria a tela de Usuários mostrar só uma fração do tenant
+  // sem nenhum aviso. Se o tenant crescer além disso, isto também vai precisar de paginação de
+  // verdade — não é o caso hoje.
+  listUsers: () => api<AdminListUsersResponse>("GET", "/api/auth/admin/list-users?limit=200"),
+  setRole: (userId: string, role: "manager" | "rep") =>
+    api<{ user: AdminUserSummary }>("POST", "/api/auth/admin/set-role", { userId, role }),
 };

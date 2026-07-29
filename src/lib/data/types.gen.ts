@@ -87,7 +87,6 @@ export interface Database {
       assets: {
         Row: {
           id: string;
-          owner_id: string;
           tag: string;
           name: string;
           kind: AssetKind;
@@ -115,7 +114,6 @@ export interface Database {
       licenses: {
         Row: {
           id: string;
-          owner_id: string;
           name: string;
           vendor: string | null;
           key: string | null;
@@ -125,6 +123,8 @@ export interface Database {
           renewal_date: string | null;
           annual_cost: number;
           owner_department: string | null;
+          assignee_id: string | null;
+          assignee: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -167,9 +167,9 @@ export interface Database {
       ppes: {
         Row: {
           id: string;
-          owner_id: string;
           name: string;
           ca: string | null;
+          assignee_id: string | null;
           assignee: string | null;
           department: string | null;
           delivered_at: string | null;
