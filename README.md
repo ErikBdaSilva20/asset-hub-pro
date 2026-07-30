@@ -282,8 +282,6 @@ Notificações
 
 Tema claro/escuro
 
-Perfil
-
 Botão de ajuda (?).
 
 Ao clicar no ?.

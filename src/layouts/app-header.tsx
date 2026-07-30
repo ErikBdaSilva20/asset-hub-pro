@@ -25,7 +25,6 @@ import {
   Moon,
   Search,
   Sun,
-  User,
   UserCog,
   X,
 } from "lucide-react";
@@ -178,9 +177,6 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
                 <p className="text-xs text-muted-foreground">{user?.email}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User className="size-4" /> Meu perfil
-              </DropdownMenuItem>
               {isAdmin(role) && (
                 <DropdownMenuItem asChild>
                   <Link to="/users">
