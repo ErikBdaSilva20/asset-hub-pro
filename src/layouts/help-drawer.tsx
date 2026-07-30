@@ -58,8 +58,8 @@ export function HelpDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-lg">
-        <SheetHeader className="border-b border-border">
+      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
+        <SheetHeader className="shrink-0 border-b border-border">
           <SheetTitle>Guia do AssetHub</SheetTitle>
           <SheetDescription>
             Documentação operacional de cada módulo: o que é, como usar, boas práticas e onde a
@@ -67,7 +67,11 @@ export function HelpDrawer({
           </SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-96px)]">
+        {/* flex-1 + min-h-0 em vez de h-[calc(100vh-Npx)]: a descrição acima quebra em mais
+            linhas em telas estreitas, e um cálculo de altura fixo não acompanha isso — sobrava
+            conteúdo pra fora da tela. min-h-0 é necessário pro filho flex realmente rolar em vez
+            de crescer sem limite (pegadinha clássica de flexbox + overflow). */}
+        <ScrollArea className="min-h-0 flex-1">
           {canSeed && (
             <div className="mx-4 mt-4 space-y-2 rounded-lg border border-dashed border-border bg-muted/40 p-3">
               <div className="flex items-center gap-2">
@@ -147,7 +151,7 @@ export function HelpDrawer({
                               <button
                                 type="button"
                                 onClick={() => setOpenTopic(related.topicId)}
-                                className="flex w-full items-start gap-2 rounded-md px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                className="flex w-full cursor-pointer items-start gap-2 rounded-md px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                               >
                                 <span className="mt-1.5 size-1 shrink-0 rounded-full bg-info" />
                                 <span>

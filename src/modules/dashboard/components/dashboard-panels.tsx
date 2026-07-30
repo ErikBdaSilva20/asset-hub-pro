@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, CalendarClock, KeyRound, ShieldAlert, Wrench } from "lucide-react";
@@ -212,7 +212,12 @@ export function ExpiringPanel() {
         </p>
       </div>
       <div className="divide-y divide-border">
-        <AlertGroup icon={CalendarClock} label="Garantias próximas">
+        <AlertGroup
+          icon={CalendarClock}
+          label="Garantias próximas"
+          to="/assets"
+          count={warranties.length}
+        >
           {warranties.map((asset) => (
             <AlertRow
               key={asset.id}
@@ -222,7 +227,7 @@ export function ExpiringPanel() {
             />
           ))}
         </AlertGroup>
-        <AlertGroup icon={KeyRound} label="Licenças">
+        <AlertGroup icon={KeyRound} label="Licenças" to="/licenses" count={expiringLicenses.length}>
           {expiringLicenses.map((license) => (
             <AlertRow
               key={license.id}
@@ -233,7 +238,7 @@ export function ExpiringPanel() {
             />
           ))}
         </AlertGroup>
-        <AlertGroup icon={ShieldAlert} label="EPIs">
+        <AlertGroup icon={ShieldAlert} label="EPIs" to="/ppe" count={expiringPpe.length}>
           {expiringPpe.map((ppe) => (
             <AlertRow
               key={ppe.id}
@@ -252,17 +257,33 @@ export function ExpiringPanel() {
 function AlertGroup({
   icon: Icon,
   label,
+  to,
+  count,
   children,
 }: {
   icon: typeof CalendarClock;
   label: string;
-  children: React.ReactNode;
+  /** Link de navegação rápida pra tela cheia do item — some quando o grupo está vazio, não faz
+   * sentido oferecer atalho pra uma lista sem nada. */
+  to?: string;
+  count: number;
+  children: ReactNode;
 }) {
   return (
     <div className="px-4 py-3">
-      <p className="mb-2 flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        <Icon className="size-3.5" /> {label}
-      </p>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          <Icon className="size-3.5" /> {label}
+        </p>
+        {to && count > 0 && (
+          <Link
+            to={to}
+            className="flex shrink-0 items-center gap-1 text-xs text-primary hover:underline"
+          >
+            Ver tudo <ArrowUpRight className="size-3" />
+          </Link>
+        )}
+      </div>
       <ul className="space-y-1.5">{children}</ul>
     </div>
   );

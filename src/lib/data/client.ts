@@ -70,6 +70,10 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
   }
 
   const { gatewayUrl, tenantId } = resolveConfig();
+  // GET/DELETE nunca levam corpo (fetch recusa body em GET). POST/PATCH sempre levam JSON válido
+  // mesmo sem args (ex. signOut()) — Content-Type: application/json com corpo vazio faz o
+  // Better-Auth falhar ao tentar parsear ("Invalid JSON in request body").
+  const canHaveBody = method !== "GET" && method !== "DELETE";
 
   const res = await fetch(`${gatewayUrl}${path}`, {
     method,
@@ -78,7 +82,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
       "Content-Type": "application/json",
       "X-Tenant-Id": tenantId,
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: canHaveBody ? JSON.stringify(body ?? {}) : undefined,
   });
 
   if (!res.ok) {

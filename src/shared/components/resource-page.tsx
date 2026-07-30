@@ -204,7 +204,7 @@ export function ResourcePage<T extends { id: string }>({
                 <SheetTitle>{detailData.title}</SheetTitle>
                 <SheetDescription>{detailData.subtitle}</SheetDescription>
               </SheetHeader>
-              <ScrollArea className="flex-1 p-4">{detailData.content}</ScrollArea>
+              <ScrollArea className="min-h-0 flex-1 p-4">{detailData.content}</ScrollArea>
               {(canEdit || canDelete) && (
                 <SheetFooter className="border-t border-border p-4">
                   {canDelete && (

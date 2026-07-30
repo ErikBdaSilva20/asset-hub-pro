@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { notifications } from "@/mock/notifications";
+import { getErrorMessage } from "@/shared/utils/errors";
 import { formatRelative, initials } from "@/shared/utils/format";
 import { isAdmin } from "@/shared/utils/permissions";
 import {
@@ -30,6 +31,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { brandIcon as BrandIcon, getNavItems, navItems, type NavItem } from "./navigation";
 
 interface AppHeaderProps {
@@ -64,8 +66,14 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
   const activeItem = navItems.find((item) => location.pathname.startsWith(item.to));
 
   const logout = async () => {
-    await signOut();
-    navigate("/");
+    try {
+      await signOut();
+      navigate("/");
+    } catch (error) {
+      // Sem isto, uma falha no signOut() (rede, gateway fora do ar) subia sem tratamento —
+      // navigate("/") nunca rodava e o usuário ficava preso na tela sem nenhum aviso.
+      toast.error(getErrorMessage(error, "Não foi possível sair. Tente novamente."));
+    }
   };
 
   return (
