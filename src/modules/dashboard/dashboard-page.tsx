@@ -65,27 +65,39 @@ export function DashboardPage() {
       </div>
 
       {isAdmin(role) ? (
+        // Gastos por categoria (admin-only) fica ao lado de Itens vencendo — essa coluna sozinha
+        // costumava ficar bem mais curta que a outra, deixando um vão enorme. Empilhando
+        // Distribuição por categoria + Últimas movimentações embaixo, a coluna cresce até ficar
+        // parecida com a altura de Itens vencendo, em vez de deixar espaço vazio.
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+          <div className="space-y-4 lg:col-span-2">
             <SpendByCategoryChart />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <CategoryChart />
+              <RecentMovements />
+            </div>
           </div>
           <ExpiringPanel />
         </div>
       ) : (
-        <div className="mt-4">
-          <ExpiringPanel />
-        </div>
+        <>
+          <div className="mt-4">
+            <ExpiringPanel />
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <CategoryChart />
+            <RecentMovements />
+          </div>
+        </>
       )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <CategoryChart />
-        <RecentMovements />
         <MaintenanceQueue />
+        <AssignedEquipmentPanel />
+        <RecentActivity />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <AssignedEquipmentPanel />
-        <RecentActivity />
         <ActiveSubscriptions />
       </div>
     </PageContainer>
