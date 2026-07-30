@@ -136,7 +136,7 @@ export function AssignedEquipmentPanel() {
       .map((employee) => ({ employee, assets: assetsByEmployeeId.get(employee.id) ?? [] }))
       .filter((entry) => entry.assets.length > 0)
       .sort((a, b) => b.assets.length - a.assets.length)
-      .slice(0, 6);
+      .slice(0, 3);
   }, [assets, employees]);
 
   const requiredPpeByFunction = useMemo(() => {
