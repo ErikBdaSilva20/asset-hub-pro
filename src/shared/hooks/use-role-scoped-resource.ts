@@ -29,6 +29,10 @@ export interface RoleScopedResource<T> {
  * vez (sem isso, corre o risco de filtrar contra um `employeeId` momentaneamente `null` e nunca
  * refazer o fetch quando o vínculo chegar — `useQuery` não reobserva sozinho só porque a
  * identidade da `queryFn` mudou).
+ *
+ * `LicensesScreen` parou de usar este hook: "quem tem qual assinatura" virou admin-only de
+ * verdade (`license_assignments`, garantia de servidor — ver docs/rbac-papeis.md), não mais um
+ * recorte "rep só vê o que é dele" como as outras tabelas lookup.
  */
 export function useRoleScopedResource<T>(
   fetchAll: () => Promise<T[]>,

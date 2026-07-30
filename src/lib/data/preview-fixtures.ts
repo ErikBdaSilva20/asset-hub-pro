@@ -12,10 +12,12 @@ type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];
 type Employee = Database["public"]["Tables"]["employees"]["Row"];
 type Asset = Database["public"]["Tables"]["assets"]["Row"];
 type License = Database["public"]["Tables"]["licenses"]["Row"];
+type LicenseAssignment = Database["public"]["Tables"]["license_assignments"]["Row"];
 type Movement = Database["public"]["Tables"]["movements"]["Row"];
 type MaintenanceOrder = Database["public"]["Tables"]["maintenance_orders"]["Row"];
 type Ppe = Database["public"]["Tables"]["ppes"]["Row"];
 type Audit = Database["public"]["Tables"]["audits"]["Row"];
+type PpeRequirement = Database["public"]["Tables"]["ppe_requirements"]["Row"];
 
 const PREVIEW_OWNER_ID = "preview-owner-1";
 const now = "2026-01-01T12:00:00.000Z";
@@ -43,6 +45,17 @@ const previewCategories: Category[] = [
     depreciation_months: 36,
     assets_count: 184,
     requires_maintenance: true,
+    created_at: now,
+    updated_at: now,
+  },
+  {
+    id: "preview-cat-2",
+    owner_id: PREVIEW_OWNER_ID,
+    name: "EPIs",
+    kind: "ppe",
+    depreciation_months: 0,
+    assets_count: 24,
+    requires_maintenance: false,
     created_at: now,
     updated_at: now,
   },
@@ -113,15 +126,24 @@ const previewAssets: Asset[] = [
 const previewLicenses: License[] = [
   {
     id: "preview-lic-1",
-    name: "GitHub Enterprise",
-    vendor: "GitHub",
-    key: "PREVIEW-KEY-0001",
-    seats_total: 50,
-    seats_used: 38,
+    name: "Claude Pro",
+    vendor: "Anthropic",
     status: "active",
+    billing_period: "monthly",
     renewal_date: now,
-    annual_cost: 42000,
+    cost: 100,
     owner_department: "Engenharia",
+    category_id: null,
+    category: "Software",
+    created_at: now,
+    updated_at: now,
+  },
+];
+
+const previewLicenseAssignments: LicenseAssignment[] = [
+  {
+    id: "preview-lic-assign-1",
+    license_id: "preview-lic-1",
     assignee_id: "preview-emp-1",
     assignee: "Marina Duarte",
     created_at: now,
@@ -178,6 +200,9 @@ const previewPpes: Ppe[] = [
     expires_at: now,
     status: "valid",
     stock: 24,
+    cost: 89.9,
+    category_id: "preview-cat-2",
+    category: "EPIs",
     created_at: now,
     updated_at: now,
   },
@@ -195,6 +220,16 @@ const previewAudits: Audit[] = [
     items_planned: 120,
     items_checked: 64,
     divergences: 2,
+    created_at: now,
+    updated_at: now,
+  },
+];
+
+const previewPpeRequirements: PpeRequirement[] = [
+  {
+    id: "preview-ppe-req-1",
+    function_name: "Head de Engenharia",
+    ppe_name: "Capacete de segurança",
     created_at: now,
     updated_at: now,
   },
@@ -223,10 +258,12 @@ const fixturesByTable: Record<string, unknown[]> = {
   employees: previewEmployees,
   assets: previewAssets,
   licenses: previewLicenses,
+  license_assignments: previewLicenseAssignments,
   movements: previewMovements,
   maintenance_orders: previewMaintenanceOrders,
   ppes: previewPpes,
   audits: previewAudits,
+  ppe_requirements: previewPpeRequirements,
 };
 
 export function previewRequest<T>(method: string, path: string, body?: unknown): Promise<T> {

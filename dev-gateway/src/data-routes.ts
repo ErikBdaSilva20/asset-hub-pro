@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { pool } from "./db";
 import { auth } from "./auth";
-import { TABLES } from "./schema";
+import { TABLES, type TableDef } from "./schema";
 
 // Modo genérico do gateway (Importantdoc.md §B5): list/create/update/remove por tabela,
 // sem get-by-id, sem filtro por query, sem joins. owner_id é sempre setado a partir da
@@ -24,6 +24,17 @@ function isPrivileged(role: string) {
   return role === "admin" || role === "manager";
 }
 
+// adminOnly vence qualquer outra regra — nem manager (que é "privileged" pras tabelas normais)
+// passa. Usado tanto pra leitura (GET) quanto escrita (POST/PATCH/DELETE) das tabelas marcadas.
+function canRead(def: TableDef, role: string) {
+  return def.adminOnly ? role === "admin" : true;
+}
+
+function canWrite(def: TableDef, role: string) {
+  if (def.adminOnly) return role === "admin";
+  return def.ownerScoped || isPrivileged(role);
+}
+
 export const dataRoutes = new Hono();
 
 dataRoutes.get("/data/:table", async (c) => {
@@ -33,6 +44,7 @@ dataRoutes.get("/data/:table", async (c) => {
 
   const user = await requireSession(c);
   if (!user) return c.json({ error: "unauthorized" }, 401);
+  if (!canRead(def, user.role)) return c.json({ error: "forbidden" }, 403);
 
   let query = `select * from "${table}"`;
   const params: unknown[] = [];
@@ -54,7 +66,7 @@ dataRoutes.post("/data/:table", async (c) => {
   const user = await requireSession(c);
   if (!user) return c.json({ error: "unauthorized" }, 401);
 
-  if (!def.ownerScoped && !isPrivileged(user.role)) {
+  if (!canWrite(def, user.role)) {
     return c.json({ error: "forbidden" }, 403);
   }
 
@@ -82,6 +94,10 @@ dataRoutes.patch("/data/:table/:id", async (c) => {
 
   const user = await requireSession(c);
   if (!user) return c.json({ error: "unauthorized" }, 401);
+
+  if (!canWrite(def, user.role)) {
+    return c.json({ error: "forbidden" }, 403);
+  }
 
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const columns = def.columns.filter((col) => col in body);
@@ -111,6 +127,10 @@ dataRoutes.delete("/data/:table/:id", async (c) => {
 
   const user = await requireSession(c);
   if (!user) return c.json({ error: "unauthorized" }, 401);
+
+  if (!canWrite(def, user.role)) {
+    return c.json({ error: "forbidden" }, 403);
+  }
 
   const params: unknown[] = [id];
   let query = `delete from "${table}" where id = $1`;

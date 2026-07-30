@@ -4,6 +4,7 @@ import { createSupplier } from "@/lib/data/suppliers.repo";
 import { createEmployee } from "@/lib/data/employees.repo";
 import { createAsset, type Asset } from "@/lib/data/assets.repo";
 import { createLicense } from "@/lib/data/licenses.repo";
+import { createLicenseAssignment } from "@/lib/data/license-assignments.repo";
 import { createMovement } from "@/lib/data/movements.repo";
 import { createMaintenanceOrder } from "@/lib/data/maintenance.repo";
 import { createPpe } from "@/lib/data/ppes.repo";
@@ -26,6 +27,7 @@ export interface SeedSummary {
   employees: number;
   assets: number;
   licenses: number;
+  licenseAssignments: number;
   movements: number;
   maintenanceOrders: number;
   ppes: number;
@@ -270,37 +272,71 @@ export async function seedDemoData(): Promise<SeedSummary> {
     createLicense({
       name: "Microsoft 365 E3",
       vendor: "Microsoft",
-      key: "M365-XXXX-4821",
-      seats_total: 250,
-      seats_used: 231,
       status: "active",
+      billing_period: "annual",
       renewal_date: iso(184),
-      annual_cost: 384000,
+      cost: 384000,
       owner_department: "Operações",
+      category: "Software",
     }),
     createLicense({
       name: "Atlassian Jira Premium",
       vendor: "Atlassian",
-      key: "JIRA-PRM-7734",
-      seats_total: 120,
-      seats_used: 118,
       status: "expiring",
+      billing_period: "annual",
       renewal_date: iso(22),
-      annual_cost: 96000,
+      cost: 96000,
       owner_department: "Engenharia",
+      category: "Software",
     }),
     createLicense({
       name: "Figma Organization",
       vendor: "Figma",
-      key: "FIG-ORG-2210",
-      seats_total: 40,
-      seats_used: 27,
       status: "active",
+      billing_period: "annual",
       renewal_date: iso(310),
-      annual_cost: 62000,
+      cost: 62000,
       owner_department: "Engenharia",
+      category: "Software",
+    }),
+    createLicense({
+      name: "Claude Pro",
+      vendor: "Anthropic",
+      status: "active",
+      billing_period: "monthly",
+      renewal_date: iso(18),
+      cost: 100,
+      owner_department: "Engenharia",
+      category: "Software",
     }),
   ]);
+
+  // Atribuição de responsável (Pedido 3, license_assignments) é admin-only no gateway — manager
+  // também pode disparar o seed (ver help-drawer.tsx), então isto é best-effort: sem permissão,
+  // o resto dos dados de exemplo continua valendo, só fica sem "quem está com o que".
+  let licenseAssignments = 0;
+  try {
+    await Promise.all([
+      createLicenseAssignment({
+        license_id: licenses[1].id,
+        assignee_id: employees[0].id,
+        assignee: employees[0].name,
+      }),
+      createLicenseAssignment({
+        license_id: licenses[2].id,
+        assignee_id: employees[0].id,
+        assignee: employees[0].name,
+      }),
+      createLicenseAssignment({
+        license_id: licenses[3].id,
+        assignee_id: employees[1].id,
+        assignee: employees[1].name,
+      }),
+    ]);
+    licenseAssignments = 3;
+  } catch {
+    // rodando como manager — sem permissão de admin pra atribuir, segue sem essa parte.
+  }
 
   const movementTypes = ["checkout", "checkin", "transfer"] as const;
   const movements = await Promise.all(
@@ -379,6 +415,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
     employees: employees.length,
     assets: assets.length,
     licenses: licenses.length,
+    licenseAssignments,
     movements: movements.length,
     maintenanceOrders: maintenanceOrders.length,
     ppes: ppes.length,

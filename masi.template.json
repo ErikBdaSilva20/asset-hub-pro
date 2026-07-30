@@ -5,7 +5,15 @@
   "version": "1.0.0",
   "engine": "vite-react-gateway",
   "schemaVersion": 1,
-  "migrations": ["0001_business_schema.sql", "0002_rbac_visibility.sql"],
+  "migrations": [
+    "0001_business_schema.sql",
+    "0002_rbac_visibility.sql",
+    "0003_ppe_cost_category.sql",
+    "0004_ppe_requirements.sql",
+    "0005_licenses_simplify.sql",
+    "0006_license_assignments.sql",
+    "0007_license_category.sql"
+  ],
   "auth": { "provider": "better-auth", "roles": ["admin", "manager", "rep"] },
   "screens": [
     {
@@ -41,6 +49,12 @@
     },
     { "id": "ppe", "route": "/ppe", "title": "EPIs", "file": "src/screens/PpeScreen" },
     {
+      "id": "ppe-requirements",
+      "route": "/ppe-requirements",
+      "title": "Requisitos de EPI",
+      "file": "src/screens/PpeRequirementsScreen"
+    },
+    {
       "id": "maintenance",
       "route": "/maintenance",
       "title": "Manutenções",
@@ -75,12 +89,6 @@
       "route": "/users",
       "title": "Usuários",
       "file": "src/screens/UsersScreen"
-    },
-    {
-      "id": "settings",
-      "route": "/settings",
-      "title": "Configurações",
-      "file": "src/screens/SettingsScreen"
     },
     { "id": "login", "route": "/", "title": "Entrar", "file": "src/screens/LoginScreen" },
     {

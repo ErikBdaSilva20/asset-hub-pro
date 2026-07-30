@@ -1,7 +1,13 @@
-import { ResourcePage } from "@/shared/components/resource-page";
+import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
 import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
 import type { Column } from "@/shared/components/data-table";
-import { createSupplier, listSuppliers, type Supplier } from "@/lib/data/suppliers.repo";
+import {
+  createSupplier,
+  listSuppliers,
+  removeSupplier,
+  updateSupplier,
+  type Supplier,
+} from "@/lib/data/suppliers.repo";
 import { formatDate } from "@/shared/utils/format";
 
 const mono = (value: string | null) => <span className="font-mono text-xs">{value ?? "—"}</span>;
@@ -50,7 +56,25 @@ export function SuppliersScreen() {
       createLabel="Novo fornecedor"
       createFields={createFields}
       onCreate={(values) => createSupplier(values as Partial<Supplier>)}
+      onUpdate={(id, values) => updateSupplier(id, values as Partial<Supplier>)}
+      onDelete={(id) => removeSupplier(id)}
       columns={columns}
+      detail={(row) => ({
+        title: row.name,
+        subtitle: row.category ?? "—",
+        content: (
+          <DetailGrid
+            items={[
+              { label: "CNPJ", value: row.document ?? "—" },
+              { label: "Contato", value: row.contact ?? "—" },
+              { label: "E-mail", value: row.email ?? "—" },
+              { label: "Categoria", value: row.category ?? "—" },
+              { label: "Contrato até", value: formatDate(row.contract_until) },
+              { label: "Ativos ativos", value: row.active_assets },
+            ]}
+          />
+        ),
+      })}
     />
   );
 }

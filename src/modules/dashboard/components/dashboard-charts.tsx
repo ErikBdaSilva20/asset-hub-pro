@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -12,7 +10,17 @@ import {
   YAxis,
 } from "recharts";
 import { listAssets } from "@/lib/data/assets.repo";
-import { listMovements } from "@/lib/data/movements.repo";
+import { listMaintenanceOrders } from "@/lib/data/maintenance.repo";
+import { listPpes } from "@/lib/data/ppes.repo";
+import { listLicenses } from "@/lib/data/licenses.repo";
+import { formatCurrency } from "@/shared/utils/format";
+
+/** licenses.cost é o valor de UM período (billing_period), não sempre anual — precisa
+ * normalizar antes de somar junto com custos já anuais (compra de ativo, EPI), senão uma
+ * assinatura mensal de R$100 entraria como R$100/ano em vez de R$1200/ano. */
+function annualizedLicenseCost(cost: number, billingPeriod: "monthly" | "annual") {
+  return billingPeriod === "monthly" ? cost * 12 : cost;
+}
 
 const axisProps = {
   stroke: "var(--color-muted-foreground)",
@@ -29,96 +37,87 @@ const tooltipStyle = {
   color: "var(--color-popover-foreground)",
 };
 
-const MONTH_LABELS = [
-  "Jan",
-  "Fev",
-  "Mar",
-  "Abr",
-  "Mai",
-  "Jun",
-  "Jul",
-  "Ago",
-  "Set",
-  "Out",
-  "Nov",
-  "Dez",
-];
-
-export function MovementsChart() {
-  const { data: movements = [] } = useQuery({
-    queryKey: ["movements", "list"],
-    queryFn: listMovements,
+/**
+ * Admin-only (gate fica em dashboard-page.tsx, não aqui — este componente só desenha).
+ * Soma 4 fontes de gasto por categoria: compra de ativos (assets.purchase_value), manutenção
+ * (maintenance_orders.cost, sem categoria própria — herda a do ativo via asset_id), reposição
+ * de EPI (ppes.cost) e assinaturas (licenses.cost, anualizado — ver annualizedLicenseCost).
+ * "Categoria" aqui é sempre o texto denormalizado (Importantdoc.md §B5, modo genérico não faz
+ * join) — vem de `categories`, dinâmico, sem nada fixo no código.
+ */
+export function SpendByCategoryChart() {
+  const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: maintenanceOrders = [] } = useQuery({
+    queryKey: ["maintenance_orders", "list"],
+    queryFn: listMaintenanceOrders,
+  });
+  const { data: ppes = [] } = useQuery({ queryKey: ["ppes", "list"], queryFn: listPpes });
+  const { data: licenses = [] } = useQuery({
+    queryKey: ["licenses", "list"],
+    queryFn: listLicenses,
   });
 
-  const monthlyMovements = useMemo(() => {
-    const buckets = new Map<string, { month: string; entradas: number; saidas: number }>();
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const cursor = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      buckets.set(`${cursor.getFullYear()}-${cursor.getMonth()}`, {
-        month: MONTH_LABELS[cursor.getMonth()],
-        entradas: 0,
-        saidas: 0,
-      });
+  const spendByCategory = useMemo(() => {
+    const totals = new Map<string, number>();
+    // Sem categoria = fica de fora do gráfico (não vira um balde "Sem categoria") — categorizar
+    // é o que dá sentido ao rateio, então item sem categoria não tem "onde" contar o gasto dele.
+    const addSpend = (category: string | null, amount: number) => {
+      if (!category) return;
+      totals.set(category, (totals.get(category) ?? 0) + amount);
+    };
+
+    const categoryByAssetId = new Map(assets.map((asset) => [asset.id, asset.category]));
+    for (const asset of assets) addSpend(asset.category, asset.purchase_value);
+    for (const order of maintenanceOrders) {
+      addSpend(categoryByAssetId.get(order.asset_id) ?? null, order.cost);
     }
-    for (const movement of movements) {
-      const occurred = new Date(movement.occurred_at);
-      const bucket = buckets.get(`${occurred.getFullYear()}-${occurred.getMonth()}`);
-      if (!bucket) continue;
-      if (movement.type === "checkin") bucket.entradas += 1;
-      else if (movement.type === "checkout") bucket.saidas += 1;
+    for (const ppe of ppes) addSpend(ppe.category, ppe.cost);
+    for (const license of licenses) {
+      addSpend(license.category, annualizedLicenseCost(license.cost, license.billing_period));
     }
-    return Array.from(buckets.values());
-  }, [movements]);
+
+    return Array.from(totals, ([name, total]) => ({ name, total })).sort(
+      (a, b) => b.total - a.total,
+    );
+  }, [assets, maintenanceOrders, ppes, licenses]);
 
   return (
     <div className="panel p-4">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold">Movimentações por mês</h3>
-          <p className="text-xs text-muted-foreground">Entradas e saídas do inventário</p>
-        </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-chart-1" /> Entradas
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-chart-2" /> Saídas
-          </span>
-        </div>
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold">Gastos por categoria</h3>
+        <p className="text-xs text-muted-foreground">
+          Compra de ativos, manutenção, reposição de EPI e assinaturas
+        </p>
       </div>
       <div className="h-[248px]">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={monthlyMovements} margin={{ left: -20, right: 4, top: 4 }}>
-            <defs>
-              <linearGradient id="in" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="var(--color-chart-1)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="out" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-chart-2)" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="var(--color-chart-2)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
+          <BarChart data={spendByCategory} margin={{ left: 0, right: 4, top: 4 }}>
             <CartesianGrid vertical={false} stroke="var(--color-border)" />
-            <XAxis dataKey="month" {...axisProps} />
-            <YAxis {...axisProps} />
-            <ChartTooltip contentStyle={tooltipStyle} cursor={{ stroke: "var(--color-border)" }} />
-            <Area
-              type="monotone"
-              dataKey="entradas"
-              stroke="var(--color-chart-1)"
-              fill="url(#in)"
-              strokeWidth={2}
+            <XAxis
+              dataKey="name"
+              {...axisProps}
+              interval={0}
+              angle={-25}
+              textAnchor="end"
+              height={60}
             />
-            <Area
-              type="monotone"
-              dataKey="saidas"
-              stroke="var(--color-chart-2)"
-              fill="url(#out)"
-              strokeWidth={2}
+            <YAxis
+              {...axisProps}
+              width={80}
+              tickFormatter={(value: number) => formatCurrency(value)}
             />
-          </AreaChart>
+            <ChartTooltip
+              contentStyle={tooltipStyle}
+              cursor={{ fill: "var(--color-muted)" }}
+              formatter={(value: number) => [formatCurrency(value), "Gasto"]}
+            />
+            <Bar
+              dataKey="total"
+              fill="var(--color-chart-1)"
+              radius={[4, 4, 0, 0]}
+              maxBarSize={38}
+            />
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </div>

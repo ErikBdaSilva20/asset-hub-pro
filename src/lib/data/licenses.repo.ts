@@ -6,7 +6,7 @@ export type License = Tables<"licenses">;
 const licensesTable = db.table<License>("licenses");
 
 function normalize(license: License): License {
-  return { ...license, annual_cost: Number(license.annual_cost) || 0 };
+  return { ...license, cost: Number(license.cost) || 0 };
 }
 
 export const listLicenses = () => licensesTable.list().then((rows) => rows.map(normalize));

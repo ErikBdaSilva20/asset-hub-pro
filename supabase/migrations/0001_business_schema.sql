@@ -206,7 +206,9 @@ create table if not exists assets (
   constraint assets_tag_key unique (tag)
 );
 
-create index if not exists idx_assets_owner on assets(owner_id);
+-- idx_assets_owner removido daqui: assets virou tabela lookup em 0002_rbac_visibility.sql
+-- (owner_id deixou de existir) — criar e derrubar o índice na sequência é só ruído, e quebra
+-- reaplicar as migrations em um banco já migrado (create index falha, coluna não existe mais).
 create index if not exists idx_assets_category on assets(category_id);
 create index if not exists idx_assets_kind on assets(kind);
 
@@ -237,7 +239,7 @@ create table if not exists licenses (
   updated_at        timestamptz not null default now()
 );
 
-create index if not exists idx_licenses_owner on licenses(owner_id);
+-- idx_licenses_owner removido: licenses virou tabela lookup em 0002_rbac_visibility.sql.
 
 drop trigger if exists trg_licenses_updated_at on licenses;
 create trigger trg_licenses_updated_at
@@ -316,7 +318,7 @@ create table if not exists ppes (
   updated_at   timestamptz not null default now()
 );
 
-create index if not exists idx_ppes_owner on ppes(owner_id);
+-- idx_ppes_owner removido: ppes virou tabela lookup em 0002_rbac_visibility.sql.
 
 drop trigger if exists trg_ppes_updated_at on ppes;
 create trigger trg_ppes_updated_at

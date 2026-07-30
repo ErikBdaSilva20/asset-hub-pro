@@ -1,8 +1,17 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
-import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
+import type { FormFieldDef, SelectFieldOption } from "@/shared/components/resource-form-dialog";
 import type { Column } from "@/shared/components/data-table";
-import { createAsset, listAssets, type Asset } from "@/lib/data/assets.repo";
+import {
+  createAsset,
+  listAssets,
+  removeAsset,
+  updateAsset,
+  type Asset,
+} from "@/lib/data/assets.repo";
+import { listEmployees, employeesListQueryKey } from "@/lib/data/employees.repo";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
 
@@ -54,7 +63,24 @@ const assetConditionOptions = [
   { value: "damaged", label: "Danificado" },
 ];
 
-export function buildAssetFields(kindOptions = assetKindOptions): FormFieldDef[] {
+/** Mesma queryKey de `employeesListQueryKey` — reaproveitada por Ativos e Equipamentos (que só
+ * é um recorte client-side da mesma tabela `assets`, ver `EquipmentScreen.tsx`) pro select de
+ * "Responsável" que alimenta o painel "Quem está com o quê" do dashboard. */
+export function useEmployeeOptions(): SelectFieldOption[] {
+  const { data: employees = [] } = useQuery({
+    queryKey: employeesListQueryKey,
+    queryFn: listEmployees,
+  });
+  return useMemo(
+    () => employees.map((employee) => ({ value: employee.id, label: employee.name })),
+    [employees],
+  );
+}
+
+export function buildAssetFields(
+  kindOptions = assetKindOptions,
+  employeeOptions: SelectFieldOption[] = [],
+): FormFieldDef[] {
   return [
     { name: "tag", label: "Etiqueta", required: true, placeholder: "AH-0001" },
     { name: "name", label: "Nome do ativo", required: true },
@@ -79,7 +105,14 @@ export function buildAssetFields(kindOptions = assetKindOptions): FormFieldDef[]
     { name: "serial_number", label: "Número de série" },
     { name: "supplier", label: "Fornecedor" },
     { name: "department", label: "Departamento" },
-    { name: "assignee", label: "Responsável" },
+    {
+      name: "assignee_id",
+      label: "Responsável",
+      type: "select",
+      placeholder: "Sem responsável",
+      options: employeeOptions,
+      deriveFields: (option) => ({ assignee: option.label }),
+    },
     { name: "location", label: "Local" },
     { name: "purchase_date", label: "Data de compra", type: "date" },
     { name: "purchase_value", label: "Valor de compra", type: "number", defaultValue: 0 },
@@ -117,6 +150,7 @@ export function AssetsScreen() {
     listAssets,
     (row) => row.assignee_id,
   );
+  const employeeOptions = useEmployeeOptions();
 
   return (
     <ResourcePage
@@ -128,8 +162,10 @@ export function AssetsScreen() {
       columns={assetColumns}
       statusOptions={assetStatusOptions}
       createLabel="Novo ativo"
-      createFields={buildAssetFields()}
+      createFields={buildAssetFields(assetKindOptions, employeeOptions)}
       onCreate={(values) => createAsset(values as Partial<Asset>)}
+      onUpdate={(id, values) => updateAsset(id, values as Partial<Asset>)}
+      onDelete={(id) => removeAsset(id)}
       detail={assetDetail}
       readOnly={readOnly}
       emptyTitle={emptyState?.title}

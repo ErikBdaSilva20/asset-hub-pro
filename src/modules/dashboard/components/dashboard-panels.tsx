@@ -1,15 +1,17 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, CalendarClock, KeyRound, ShieldAlert, Wrench } from "lucide-react";
-import { listAssets } from "@/lib/data/assets.repo";
+import { listAssets, type Asset } from "@/lib/data/assets.repo";
+import { listEmployees } from "@/lib/data/employees.repo";
 import { listLicenses } from "@/lib/data/licenses.repo";
 import { listMaintenanceOrders } from "@/lib/data/maintenance.repo";
 import { listMovements } from "@/lib/data/movements.repo";
+import { listPpeRequirements } from "@/lib/data/ppe-requirements.repo";
 import { listPpes } from "@/lib/data/ppes.repo";
 import { StatusBadge } from "@/shared/components/status-badge";
-import { MetricCard } from "@/shared/components/stat-card";
 import { UserChip } from "@/shared/components/avatar-group";
-import { daysUntil, formatDate, formatRelative } from "@/shared/utils/format";
+import { daysUntil, formatCurrency, formatDate, formatRelative } from "@/shared/utils/format";
 
 function PanelHeader({ title, to }: { title: string; to: string }) {
   return (
@@ -91,6 +93,93 @@ export function RecentActivity() {
             </span>
           </li>
         ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * "Quem está com o quê" — agrupa `assets` por `assignee_id` (qualquer tipo: notebook, móvel,
+ * veículo... EPI fica de fora de propósito, mora em `ppes` e é uso individual, não faz sentido
+ * listar como "patrimônio na mão de alguém"). Ao lado de cada colaborador, mostra o EPI que a
+ * função dele exige (`ppe_requirements`, casado por texto com `employees.role`) — só a lista do
+ * que é exigido, sem cruzar com o que já foi entregue (ver docs/rbac-papeis.md pra outras
+ * decisões desse tipo neste projeto).
+ */
+export function AssignedEquipmentPanel() {
+  const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: employees = [] } = useQuery({
+    queryKey: ["employees", "list"],
+    queryFn: listEmployees,
+  });
+  const { data: requirements = [] } = useQuery({
+    queryKey: ["ppe_requirements", "list"],
+    queryFn: listPpeRequirements,
+  });
+
+  const holders = useMemo(() => {
+    const assetsByEmployeeId = new Map<string, Asset[]>();
+    for (const asset of assets) {
+      if (!asset.assignee_id) continue;
+      const held = assetsByEmployeeId.get(asset.assignee_id) ?? [];
+      held.push(asset);
+      assetsByEmployeeId.set(asset.assignee_id, held);
+    }
+
+    return employees
+      .map((employee) => ({ employee, assets: assetsByEmployeeId.get(employee.id) ?? [] }))
+      .filter((entry) => entry.assets.length > 0)
+      .sort((a, b) => b.assets.length - a.assets.length)
+      .slice(0, 6);
+  }, [assets, employees]);
+
+  const requiredPpeByFunction = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const requirement of requirements) {
+      const key = requirement.function_name.trim().toLowerCase();
+      const list = map.get(key) ?? [];
+      list.push(requirement.ppe_name);
+      map.set(key, list);
+    }
+    return map;
+  }, [requirements]);
+
+  return (
+    <div className="panel overflow-hidden">
+      <PanelHeader title="Quem está com o quê" to="/employees" />
+      <ul className="divide-y divide-border">
+        {holders.map(({ employee, assets: heldAssets }) => {
+          const requiredPpe = requiredPpeByFunction.get(employee.role.trim().toLowerCase());
+          const shown = heldAssets.slice(0, 4);
+          const extra = heldAssets.length - shown.length;
+
+          return (
+            <li key={employee.id} className="px-4 py-3">
+              <UserChip name={employee.name} subtitle={employee.role} />
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {shown.map((asset) => (
+                  <span
+                    key={asset.id}
+                    className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                  >
+                    {asset.name}
+                  </span>
+                ))}
+                {extra > 0 && (
+                  <span className="rounded-full px-2 py-0.5 text-xs text-muted-foreground">
+                    +{extra}
+                  </span>
+                )}
+              </div>
+              {requiredPpe && requiredPpe.length > 0 && (
+                <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+                  <ShieldAlert className="size-3 shrink-0" />
+                  EPI exigido: {requiredPpe.join(", ")}
+                </p>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -204,30 +293,35 @@ function AlertRow({
   );
 }
 
-export function LicenseSeats() {
+const BILLING_PERIOD_SUFFIX: Record<string, string> = { monthly: "/mês", annual: "/ano" };
+
+export function ActiveSubscriptions() {
   const { data: licenses = [] } = useQuery({
     queryKey: ["licenses", "list"],
     queryFn: listLicenses,
   });
+  const active = licenses.filter((license) => license.status !== "expired").slice(0, 5);
 
   return (
     <div className="panel overflow-hidden">
-      <PanelHeader title="Licenças disponíveis" to="/licenses" />
-      <div className="space-y-3 px-4 py-3">
-        {licenses.slice(0, 5).map((license) => (
-          <MetricCard
-            key={license.id}
-            label={license.name}
-            value={license.seats_used}
-            total={license.seats_total}
-            tone={
-              license.seats_total > 0 && license.seats_used / license.seats_total > 0.9
-                ? "warning"
-                : "primary"
-            }
-          />
+      <PanelHeader title="Assinaturas ativas" to="/licenses" />
+      <ul className="divide-y divide-border">
+        {active.map((license) => (
+          <li key={license.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{license.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{license.vendor ?? "—"}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-3">
+              <StatusBadge status={license.status} />
+              <span className="tabular w-24 text-right text-xs text-muted-foreground">
+                {formatCurrency(license.cost)}
+                {BILLING_PERIOD_SUFFIX[license.billing_period] ?? ""}
+              </span>
+            </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }

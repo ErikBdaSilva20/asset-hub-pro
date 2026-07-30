@@ -6,6 +6,8 @@ import type { Column } from "@/shared/components/data-table";
 import {
   createMaintenanceOrder,
   listMaintenanceOrders,
+  removeMaintenanceOrder,
+  updateMaintenanceOrder,
   type MaintenanceOrder,
 } from "@/lib/data/maintenance.repo";
 import { listAssets } from "@/lib/data/assets.repo";
@@ -87,14 +89,14 @@ export function MaintenanceScreen() {
     { name: "description", label: "Descrição", type: "textarea" },
   ];
 
-  const handleCreate = async (values: Record<string, unknown>) => {
+  const withAssetLabel = (values: Record<string, unknown>) => {
     const asset = assets.find((item) => item.id === values.asset_id);
-    return createMaintenanceOrder({
-      ...values,
-      asset_tag: asset?.tag ?? null,
-      asset_name: asset?.name ?? null,
-    } as Partial<MaintenanceOrder>);
+    return { ...values, asset_tag: asset?.tag ?? null, asset_name: asset?.name ?? null };
   };
+  const handleCreate = (values: Record<string, unknown>) =>
+    createMaintenanceOrder(withAssetLabel(values) as Partial<MaintenanceOrder>);
+  const handleUpdate = (id: string, values: Record<string, unknown>) =>
+    updateMaintenanceOrder(id, withAssetLabel(values) as Partial<MaintenanceOrder>);
 
   return (
     <ResourcePage
@@ -106,6 +108,8 @@ export function MaintenanceScreen() {
       createLabel="Nova ordem"
       createFields={createFields}
       onCreate={handleCreate}
+      onUpdate={handleUpdate}
+      onDelete={(id) => removeMaintenanceOrder(id)}
       statusOptions={statusOptions}
       columns={columns}
       detail={(row) => ({

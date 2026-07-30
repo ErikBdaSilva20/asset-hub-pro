@@ -17,6 +17,7 @@ export type AssetStatus = "available" | "in_use" | "maintenance" | "reserved" | 
 export type AssetCondition = "new" | "good" | "fair" | "damaged";
 export type EmployeeStatus = "active" | "on_leave" | "offboarded";
 export type LicenseStatus = "active" | "expiring" | "expired" | "unassigned";
+export type LicenseBillingPeriod = "monthly" | "annual";
 export type MovementType = "checkout" | "checkin" | "transfer" | "maintenance" | "disposal";
 export type MaintenanceKind = "preventive" | "corrective";
 export type MaintenanceStatus = "scheduled" | "in_progress" | "done" | "late";
@@ -116,13 +117,21 @@ export interface Database {
           id: string;
           name: string;
           vendor: string | null;
-          key: string | null;
-          seats_total: number;
-          seats_used: number;
           status: LicenseStatus;
+          billing_period: LicenseBillingPeriod;
           renewal_date: string | null;
-          annual_cost: number;
+          cost: number;
           owner_department: string | null;
+          category_id: string | null;
+          category: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      license_assignments: {
+        Row: {
+          id: string;
+          license_id: string;
           assignee_id: string | null;
           assignee: string | null;
           created_at: string;
@@ -176,6 +185,9 @@ export interface Database {
           expires_at: string | null;
           status: PpeStatus;
           stock: number;
+          cost: number;
+          category_id: string | null;
+          category: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -192,6 +204,15 @@ export interface Database {
           items_planned: number;
           items_checked: number;
           divergences: number;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      ppe_requirements: {
+        Row: {
+          id: string;
+          function_name: string;
+          ppe_name: string;
           created_at: string;
           updated_at: string;
         };

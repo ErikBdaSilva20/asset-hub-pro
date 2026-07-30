@@ -44,6 +44,10 @@ export interface FormFieldDef {
   placeholder?: string;
   options?: SelectFieldOption[];
   defaultValue?: string | number | boolean;
+  /** Só pra type "select": ao escolher uma opção, mescla estes valores extra no formulário —
+   * ex. um select de colaborador (envia o id) que também preenche um campo de nome denormalizado.
+   * Reutilizável por qualquer campo futuro no mesmo formato (categoria, fornecedor, etc.). */
+  deriveFields?: (option: SelectFieldOption) => Record<string, unknown>;
 }
 
 interface ResourceFormDialogProps {
@@ -53,12 +57,28 @@ interface ResourceFormDialogProps {
   description?: string;
   fields: FormFieldDef[];
   onSubmit: (values: Record<string, unknown>) => Promise<void>;
+  /** Presente = modo edição: semeia o formulário com o registro existente em vez dos
+   * `defaultValue` de cada campo (usados só na criação). Chaves que não batem com nenhum
+   * `field.name` são ignoradas. */
+  initialValues?: Record<string, unknown>;
+  submitLabel?: string;
 }
 
-function initialValues(fields: FormFieldDef[]): Record<string, unknown> {
+function buildValues(
+  fields: FormFieldDef[],
+  overrides?: Record<string, unknown>,
+): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const field of fields) {
-    values[field.name] = field.defaultValue ?? (field.type === "checkbox" ? false : "");
+    const existing = overrides?.[field.name];
+    if (existing === undefined || existing === null) {
+      values[field.name] = field.defaultValue ?? (field.type === "checkbox" ? false : "");
+    } else if (field.type === "date" && typeof existing === "string") {
+      // <input type="date"> só aceita "AAAA-MM-DD" — os registros vêm com timestamp ISO completo.
+      values[field.name] = existing.slice(0, 10);
+    } else {
+      values[field.name] = existing as string | number | boolean;
+    }
   }
   return values;
 }
@@ -74,14 +94,18 @@ export function ResourceFormDialog({
   description,
   fields,
   onSubmit,
+  initialValues,
+  submitLabel = "Salvar",
 }: ResourceFormDialogProps) {
-  const [values, setValues] = useState<Record<string, unknown>>(() => initialValues(fields));
+  const [values, setValues] = useState<Record<string, unknown>>(() =>
+    buildValues(fields, initialValues),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
-      setValues(initialValues(fields));
+      setValues(buildValues(fields, initialValues));
       setError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -99,11 +123,13 @@ export function ResourceFormDialog({
       return;
     }
 
+    // Itera sobre `values` (não só `fields`) pra incluir também os campos que um `deriveFields`
+    // injetou sem ter um <Select>/<Input> próprio declarado.
+    const numberFields = new Set(fields.filter((f) => f.type === "number").map((f) => f.name));
     const payload: Record<string, unknown> = {};
-    for (const field of fields) {
-      const raw = values[field.name];
+    for (const [name, raw] of Object.entries(values)) {
       if (isEmpty(raw)) continue;
-      payload[field.name] = field.type === "number" ? Number(raw) : raw;
+      payload[name] = numberFields.has(name) ? Number(raw) : raw;
     }
 
     setSubmitting(true);
@@ -148,7 +174,14 @@ export function ResourceFormDialog({
                 ) : field.type === "select" ? (
                   <Select
                     value={(values[field.name] as string) ?? ""}
-                    onValueChange={(value) => setValue(field.name, value)}
+                    onValueChange={(value) => {
+                      const option = field.options?.find((o) => o.value === value);
+                      setValues((prev) => ({
+                        ...prev,
+                        [field.name]: value,
+                        ...(option && field.deriveFields ? field.deriveFields(option) : {}),
+                      }));
+                    }}
                   >
                     <SelectTrigger id={field.name} className="w-full">
                       <SelectValue placeholder={field.placeholder ?? "Selecione…"} />
@@ -201,7 +234,7 @@ export function ResourceFormDialog({
             </Button>
             <Button type="submit" disabled={submitting}>
               {submitting && <Loader2 className="size-4 animate-spin" />}
-              Salvar
+              {submitLabel}
             </Button>
           </DialogFooter>
         </form>

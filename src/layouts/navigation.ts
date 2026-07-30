@@ -1,3 +1,5 @@
+import type { Role } from "@/lib/auth";
+import { hasAnyRole } from "@/shared/utils/permissions";
 import type { LucideIcon } from "lucide-react";
 import {
   Boxes,
@@ -7,17 +9,15 @@ import {
   HardHat,
   KeyRound,
   LayoutDashboard,
+  ListChecks,
   Package,
   Repeat,
-  Settings,
   Shapes,
   Truck,
   UserCog,
   Users,
   Wrench,
 } from "lucide-react";
-import type { Role } from "@/lib/auth";
-import { hasAnyRole } from "@/shared/utils/permissions";
 
 export type NavGroup =
   | "geral"
@@ -82,6 +82,13 @@ export const navItems: NavItem[] = [
     blurb: "Proteção e validade",
   },
   {
+    label: "Requisitos de EPI",
+    to: "/ppe-requirements",
+    icon: ListChecks,
+    group: "seguranca",
+    blurb: "EPI exigido por função",
+  },
+  {
     label: "Movimentações",
     to: "/movements",
     icon: Repeat,
@@ -143,13 +150,6 @@ export const navItems: NavItem[] = [
     group: "sistema",
     blurb: "Papéis e permissões",
     roles: ["admin"],
-  },
-  {
-    label: "Configurações",
-    to: "/settings",
-    icon: Settings,
-    group: "sistema",
-    blurb: "Conta e conexão",
   },
 ];
 

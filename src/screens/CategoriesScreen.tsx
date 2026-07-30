@@ -1,7 +1,13 @@
-import { ResourcePage } from "@/shared/components/resource-page";
+import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
 import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
 import type { Column } from "@/shared/components/data-table";
-import { createCategory, listCategories, type Category } from "@/lib/data/categories.repo";
+import {
+  createCategory,
+  listCategories,
+  removeCategory,
+  updateCategory,
+  type Category,
+} from "@/lib/data/categories.repo";
 import { assetKindOptions } from "./AssetsScreen";
 
 const muted = (value: string) => <span className="text-muted-foreground">{value}</span>;
@@ -53,7 +59,26 @@ export function CategoriesScreen() {
       createLabel="Nova categoria"
       createFields={createFields}
       onCreate={(values) => createCategory(values as Partial<Category>)}
+      onUpdate={(id, values) => updateCategory(id, values as Partial<Category>)}
+      onDelete={(id) => removeCategory(id)}
       columns={columns}
+      detail={(row) => ({
+        title: row.name,
+        subtitle: row.kind,
+        content: (
+          <DetailGrid
+            items={[
+              { label: "Tipo", value: row.kind },
+              { label: "Depreciação", value: `${row.depreciation_months} meses` },
+              {
+                label: "Manutenção",
+                value: row.requires_maintenance ? "Obrigatória" : "Opcional",
+              },
+              { label: "Ativos", value: row.assets_count },
+            ]}
+          />
+        ),
+      })}
     />
   );
 }

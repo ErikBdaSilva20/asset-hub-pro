@@ -80,6 +80,10 @@ export const helpTopics: HelpTopic[] = [
       },
       { topicId: "assets", note: "O nome aparece como Responsável quando um ativo é entregue" },
       { topicId: "ppe", note: "O nome aparece como Colaborador ao registrar entrega de EPI" },
+      {
+        topicId: "licenses",
+        note: "O nome aparece como Responsável (só admin vê) quando uma assinatura é atribuída",
+      },
     ],
   },
   {
@@ -123,22 +127,30 @@ export const helpTopics: HelpTopic[] = [
   },
   {
     id: "licenses",
-    title: "Licenças",
-    description: "Contratos de software com controle de assentos, renovação e custo anual.",
+    title: "Assinaturas",
+    description:
+      "Assinaturas e licenças de software centralizadas: custo, periodicidade (mensal/anual), categoria e renovação.",
     howTo: [
-      "Acompanhe assentos usados versus contratados para evitar sobrecompra.",
       "Programe a renovação com pelo menos 30 dias de antecedência.",
+      "Só o admin vê e atribui o campo Responsável — manager cadastra e gerencia o resto da assinatura, mas nunca vê quem está com ela.",
     ],
     bestPractices: [
-      "Revogue assentos no desligamento do colaborador.",
-      "Revise licenças sem alocação a cada trimestre.",
+      "Revise assinaturas sem categoria a cada trimestre — sem categoria, o gasto não entra no gráfico do Dashboard.",
+      "Desative a assinatura no desligamento do responsável.",
     ],
     relatedTo: [
       {
         topicId: "departments",
         note: "O campo Departamento usa o texto cadastrado em Departamentos",
       },
-      { topicId: "dashboard", note: 'Licenças vencendo aparecem no painel "Itens vencendo"' },
+      {
+        topicId: "employees",
+        note: "O campo Responsável (admin-only) puxa a lista de Colaboradores",
+      },
+      {
+        topicId: "dashboard",
+        note: 'Custo anualizado entra em "Gastos por categoria" (admin-only); renovações próximas aparecem em "Itens vencendo" (todo mundo vê)',
+      },
     ],
   },
   {
@@ -234,20 +246,6 @@ export const helpTopics: HelpTopic[] = [
     ],
     bestPractices: ["Defina o prazo de depreciação junto do time financeiro antes de cadastrar."],
     relatedTo: [{ topicId: "assets", note: "Aparece no campo Categoria ao cadastrar um ativo" }],
-  },
-  {
-    id: "settings",
-    title: "Configurações",
-    description:
-      "Status da conexão com o tenant-gateway, sua conta e políticas gerais do inventário.",
-    howTo: [
-      'Confira aqui se o app está de fato conectado ao gateway (variável VITE_GATEWAY_URL) antes de reportar um bug de "dado sumiu".',
-      "Seu papel (admin/manager/rep) aparece aqui — é ele que decide se você vê só os seus registros ou os de todo mundo.",
-    ],
-    bestPractices: [
-      'Se "Status" disser "Gateway não configurado", nenhuma tela vai carregar dado nenhum — comece por aí.',
-    ],
-    relatedTo: [],
   },
 ];
 

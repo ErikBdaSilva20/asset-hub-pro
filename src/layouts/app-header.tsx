@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { brandIcon as BrandIcon, navItems, getNavItems, type NavItem } from "./navigation";
+import { brandIcon as BrandIcon, getNavItems, navItems, type NavItem } from "./navigation";
 
 interface AppHeaderProps {
   onOpenHelp: () => void;
@@ -172,9 +172,6 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
               <DropdownMenuSeparator />
               <DropdownMenuItem>
                 <User className="size-4" /> Meu perfil
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/settings">Configurações</Link>
               </DropdownMenuItem>
               {isAdmin(role) && (
                 <DropdownMenuItem asChild>

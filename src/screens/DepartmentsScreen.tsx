@@ -1,7 +1,13 @@
-import { ResourcePage } from "@/shared/components/resource-page";
+import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
 import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
 import type { Column } from "@/shared/components/data-table";
-import { createDepartment, listDepartments, type Department } from "@/lib/data/departments.repo";
+import {
+  createDepartment,
+  listDepartments,
+  removeDepartment,
+  updateDepartment,
+  type Department,
+} from "@/lib/data/departments.repo";
 
 const mono = (value: string | null) => <span className="font-mono text-xs">{value ?? "—"}</span>;
 const muted = (value: string | null) => (
@@ -47,7 +53,23 @@ export function DepartmentsScreen() {
       createLabel="Novo departamento"
       createFields={createFields}
       onCreate={(values) => createDepartment(values as Partial<Department>)}
+      onUpdate={(id, values) => updateDepartment(id, values as Partial<Department>)}
+      onDelete={(id) => removeDepartment(id)}
       columns={columns}
+      detail={(row) => ({
+        title: row.name,
+        subtitle: row.cost_center ?? "—",
+        content: (
+          <DetailGrid
+            items={[
+              { label: "Gestor", value: row.manager ?? "—" },
+              { label: "Centro de custo", value: row.cost_center ?? "—" },
+              { label: "Pessoas", value: row.headcount },
+              { label: "Ativos", value: row.assets_count },
+            ]}
+          />
+        ),
+      })}
     />
   );
 }

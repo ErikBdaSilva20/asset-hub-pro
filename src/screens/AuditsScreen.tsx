@@ -1,8 +1,15 @@
 import { StatusBadge } from "@/shared/components/status-badge";
-import { ResourcePage } from "@/shared/components/resource-page";
+import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
 import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
 import type { Column } from "@/shared/components/data-table";
-import { createAudit, listAudits, type Audit } from "@/lib/data/audits.repo";
+import {
+  createAudit,
+  listAudits,
+  removeAudit,
+  updateAudit,
+  type Audit,
+} from "@/lib/data/audits.repo";
+import { formatDate } from "@/shared/utils/format";
 
 const mono = (value: string | null) => <span className="font-mono text-xs">{value ?? "—"}</span>;
 const muted = (value: string | null) => (
@@ -70,8 +77,26 @@ export function AuditsScreen() {
       createLabel="Nova auditoria"
       createFields={createFields}
       onCreate={(values) => createAudit(values as Partial<Audit>)}
+      onUpdate={(id, values) => updateAudit(id, values as Partial<Audit>)}
+      onDelete={(id) => removeAudit(id)}
       statusOptions={statusOptions}
       columns={columns}
+      detail={(row) => ({
+        title: row.code,
+        subtitle: row.scope ?? "—",
+        content: (
+          <DetailGrid
+            items={[
+              { label: "Status", value: <StatusBadge status={row.status} /> },
+              { label: "Responsável", value: row.responsible ?? "—" },
+              { label: "Início", value: formatDate(row.started_at) },
+              { label: "Itens planejados", value: row.items_planned },
+              { label: "Itens conferidos", value: row.items_checked },
+              { label: "Divergências", value: row.divergences },
+            ]}
+          />
+        ),
+      })}
     />
   );
 }

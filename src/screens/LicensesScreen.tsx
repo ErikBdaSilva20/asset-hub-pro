@@ -1,13 +1,28 @@
+import { useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
 import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
 import type { Column } from "@/shared/components/data-table";
-import { createLicense, listLicenses, type License } from "@/lib/data/licenses.repo";
+import {
+  createLicense,
+  listLicenses,
+  removeLicense,
+  updateLicense,
+  type License,
+} from "@/lib/data/licenses.repo";
+import {
+  createLicenseAssignment,
+  listLicenseAssignments,
+  removeLicenseAssignment,
+  updateLicenseAssignment,
+} from "@/lib/data/license-assignments.repo";
+import { listEmployees, employeesListQueryKey } from "@/lib/data/employees.repo";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
-import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
+import { useAuth } from "@/lib/auth";
+import { canManageCatalog, isAdmin } from "@/shared/utils/permissions";
 
-const mono = (value: string | null) => <span className="font-mono text-xs">{value ?? "—"}</span>;
-const muted = (value: string | null) => (
+const muted = (value: string | null | undefined) => (
   <span className="text-muted-foreground">{value ?? "—"}</span>
 );
 
@@ -16,26 +31,54 @@ const statusOptions = [
   { value: "active", label: "Ativa" },
   { value: "expiring", label: "Vencendo" },
   { value: "expired", label: "Vencida" },
-  { value: "unassigned", label: "Sem alocação" },
+  { value: "unassigned", label: "Sem responsável" },
 ];
 
-const columns: Column<License>[] = [
+const billingPeriodOptions = [
+  { value: "monthly", label: "Mensal" },
+  { value: "annual", label: "Anual" },
+];
+
+const billingPeriodLabel: Record<License["billing_period"], string> = {
+  monthly: "/mês",
+  annual: "/ano",
+};
+
+const baseFields: FormFieldDef[] = [
+  {
+    name: "name",
+    label: "Nome da assinatura",
+    required: true,
+    placeholder: "Claude, GPT, Netflix…",
+  },
+  { name: "vendor", label: "Fornecedor" },
+  {
+    name: "status",
+    label: "Status",
+    type: "select",
+    defaultValue: "active",
+    options: statusOptions.filter((o) => o.value !== "all"),
+  },
+  {
+    name: "billing_period",
+    label: "Periodicidade",
+    type: "select",
+    defaultValue: "annual",
+    options: billingPeriodOptions,
+  },
+  { name: "cost", label: "Custo", type: "number", defaultValue: 0 },
+  { name: "renewal_date", label: "Próxima renovação", type: "date" },
+  { name: "owner_department", label: "Departamento" },
+  { name: "category", label: "Categoria" },
+];
+
+const baseColumns: Column<License>[] = [
   {
     key: "name",
-    header: "Licença",
+    header: "Assinatura",
     cell: (row) => <span className="font-medium">{row.name}</span>,
   },
   { key: "vendor", header: "Fornecedor", cell: (row) => muted(row.vendor) },
-  { key: "assignee", header: "Responsável", cell: (row) => muted(row.assignee) },
-  {
-    key: "seats",
-    header: "Assentos",
-    cell: (row) => (
-      <span className="tabular">
-        {row.seats_used}/{row.seats_total}
-      </span>
-    ),
-  },
   { key: "status", header: "Status", cell: (row) => <StatusBadge status={row.status} /> },
   {
     key: "renewal",
@@ -44,65 +87,150 @@ const columns: Column<License>[] = [
   },
   {
     key: "cost",
-    header: "Custo anual",
+    header: "Custo",
     align: "right",
-    cell: (row) => <span className="tabular">{formatCurrency(row.annual_cost)}</span>,
+    cell: (row) => (
+      <span className="tabular">
+        {formatCurrency(row.cost)}
+        {billingPeriodLabel[row.billing_period]}
+      </span>
+    ),
   },
 ];
 
-const createFields: FormFieldDef[] = [
-  { name: "name", label: "Nome da licença", required: true },
-  { name: "vendor", label: "Fornecedor" },
-  { name: "key", label: "Chave" },
-  { name: "seats_total", label: "Assentos totais", type: "number", defaultValue: 0 },
-  { name: "seats_used", label: "Assentos usados", type: "number", defaultValue: 0 },
-  {
-    name: "status",
-    label: "Status",
-    type: "select",
-    defaultValue: "active",
-    options: statusOptions.filter((o) => o.value !== "all"),
-  },
-  { name: "renewal_date", label: "Renovação", type: "date" },
-  { name: "annual_cost", label: "Custo anual", type: "number", defaultValue: 0 },
-  { name: "owner_department", label: "Departamento" },
-  { name: "assignee", label: "Responsável" },
-];
-
+/**
+ * "Responsável" (quem tem a assinatura) vive em `license_assignments`, tabela admin-only no
+ * gateway (Pedido 3 do TODO-LICENSES-DASHBOARD.md: "rep ou manager não deve saber disso jamais").
+ * Por isso a coluna, o campo do formulário e o item do detalhe só existem quando `isAdmin(role)`
+ * — pra qualquer outro papel, o dado nem é buscado (evita um 403 previsível na tela).
+ */
 export function LicensesScreen() {
-  const { list, readOnly, emptyState } = useRoleScopedResource(
-    listLicenses,
-    (row) => row.assignee_id,
+  const { role } = useAuth();
+  const admin = isAdmin(role);
+  const readOnly = !canManageCatalog(role);
+  const queryClient = useQueryClient();
+
+  const { data: assignments = [] } = useQuery({
+    queryKey: ["license_assignments", "list"],
+    queryFn: listLicenseAssignments,
+    enabled: admin,
+  });
+  const { data: employees = [] } = useQuery({
+    queryKey: employeesListQueryKey,
+    queryFn: listEmployees,
+    enabled: admin,
+  });
+
+  const assigneeByLicense = useMemo(
+    () => new Map(assignments.map((a) => [a.license_id, a.assignee])),
+    [assignments],
   );
+  const employeeOptions = useMemo(
+    () => employees.map((employee) => ({ value: employee.id, label: employee.name })),
+    [employees],
+  );
+
+  const columns: Column<License>[] = admin
+    ? [
+        ...baseColumns.slice(0, 2),
+        {
+          key: "assignee",
+          header: "Responsável",
+          cell: (row) => muted(assigneeByLicense.get(row.id)),
+        },
+        ...baseColumns.slice(2),
+      ]
+    : baseColumns;
+
+  const createFields: FormFieldDef[] = admin
+    ? [
+        ...baseFields,
+        {
+          name: "assignee_id",
+          label: "Responsável",
+          type: "select",
+          placeholder: "Sem responsável",
+          options: employeeOptions,
+          deriveFields: (option) => ({ assignee: option.label }),
+        },
+      ]
+    : baseFields;
+
+  // Cria/atualiza/remove a linha de license_assignments correspondente — no-op pra quem não é
+  // admin (o campo nem existe no formulário nesse caso). Select limpo (sem opção escolhida) com
+  // atribuição existente remove o vínculo, em vez de deixar um assignee_id órfão pra trás.
+  const syncAssignment = async (licenseId: string, assigneeId: unknown, assignee: unknown) => {
+    if (!admin) return;
+    const existing = assignments.find((a) => a.license_id === licenseId);
+    if (typeof assigneeId === "string" && assigneeId) {
+      const patch = { assignee_id: assigneeId, assignee: assignee as string };
+      await (existing
+        ? updateLicenseAssignment(existing.id, patch)
+        : createLicenseAssignment({ license_id: licenseId, ...patch }));
+    } else if (existing) {
+      await removeLicenseAssignment(existing.id);
+    }
+    await queryClient.invalidateQueries({ queryKey: ["license_assignments", "list"] });
+  };
+
+  const handleCreate = async (values: Record<string, unknown>) => {
+    const { assignee_id: assigneeId, assignee, ...licenseValues } = values;
+    const license = await createLicense(licenseValues as Partial<License>);
+    await syncAssignment(license.id, assigneeId, assignee);
+    return license;
+  };
+
+  const handleUpdate = async (id: string, values: Record<string, unknown>) => {
+    const { assignee_id: assigneeId, assignee, ...licenseValues } = values;
+    const license = await updateLicense(id, licenseValues as Partial<License>);
+    await syncAssignment(id, assigneeId, assignee);
+    return license;
+  };
 
   return (
     <ResourcePage
-      title="Licenças"
-      description="Contratos de software, assentos consumidos, renovação e custo anual."
+      title="Assinaturas"
+      description="Assinaturas e licenças de software centralizadas: custo, periodicidade e responsável."
       resource="licenses"
-      list={list}
+      list={listLicenses}
       statusOf={(row) => row.status}
-      createLabel="Nova licença"
+      createLabel="Nova assinatura"
       createFields={createFields}
-      onCreate={(values) => createLicense(values as Partial<License>)}
+      onCreate={handleCreate}
+      onUpdate={handleUpdate}
+      onDelete={(id) => removeLicense(id)}
+      editInitialValues={(row) => {
+        const existing = assignments.find((a) => a.license_id === row.id);
+        return {
+          ...row,
+          assignee_id: existing?.assignee_id ?? "",
+          assignee: existing?.assignee ?? "",
+        };
+      }}
       statusOptions={statusOptions}
       columns={columns}
       readOnly={readOnly}
-      emptyTitle={emptyState?.title}
-      emptyDescription={emptyState?.description}
       detail={(row) => ({
         title: row.name,
         subtitle: `${row.vendor ?? "—"} · ${row.owner_department ?? "—"}`,
         content: (
           <DetailGrid
             items={[
-              { label: "Chave", value: mono(row.key) },
               { label: "Status", value: <StatusBadge status={row.status} /> },
-              { label: "Assentos", value: `${row.seats_used} de ${row.seats_total}` },
+              {
+                label: "Periodicidade",
+                value:
+                  billingPeriodOptions.find((o) => o.value === row.billing_period)?.label ?? "—",
+              },
               { label: "Renovação", value: formatDate(row.renewal_date) },
-              { label: "Custo anual", value: formatCurrency(row.annual_cost) },
+              {
+                label: "Custo",
+                value: `${formatCurrency(row.cost)}${billingPeriodLabel[row.billing_period]}`,
+              },
               { label: "Departamento", value: row.owner_department ?? "—" },
-              { label: "Responsável", value: row.assignee ?? "—" },
+              ...(admin
+                ? [{ label: "Responsável", value: assigneeByLicense.get(row.id) ?? "—" }]
+                : []),
             ]}
           />
         ),

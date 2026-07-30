@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Boxes, CircleDollarSign, PackageCheck, Wrench } from "lucide-react";
 import { PageContainer, PageHeader } from "@/shared/components/page-header";
 import { StatCard } from "@/shared/components/stat-card";
-import { CategoryChart, MovementsChart } from "./components/dashboard-charts";
+import { CategoryChart, SpendByCategoryChart } from "./components/dashboard-charts";
 import {
+  ActiveSubscriptions,
+  AssignedEquipmentPanel,
   ExpiringPanel,
-  LicenseSeats,
   MaintenanceQueue,
   RecentActivity,
   RecentMovements,
@@ -13,8 +14,11 @@ import {
 import { listAssets } from "@/lib/data/assets.repo";
 import { listMaintenanceOrders } from "@/lib/data/maintenance.repo";
 import { formatCurrency, formatNumber } from "@/shared/utils/format";
+import { useAuth } from "@/lib/auth";
+import { isAdmin } from "@/shared/utils/permissions";
 
 export function DashboardPage() {
+  const { role } = useAuth();
   const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
   const { data: maintenanceOrders = [] } = useQuery({
     queryKey: ["maintenance_orders", "list"],
@@ -60,12 +64,18 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <MovementsChart />
+      {isAdmin(role) ? (
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <SpendByCategoryChart />
+          </div>
+          <ExpiringPanel />
         </div>
-        <ExpiringPanel />
-      </div>
+      ) : (
+        <div className="mt-4">
+          <ExpiringPanel />
+        </div>
+      )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <CategoryChart />
@@ -73,9 +83,10 @@ export function DashboardPage() {
         <MaintenanceQueue />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <AssignedEquipmentPanel />
         <RecentActivity />
-        <LicenseSeats />
+        <ActiveSubscriptions />
       </div>
     </PageContainer>
   );
