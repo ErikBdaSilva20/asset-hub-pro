@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useListQuery } from "@/shared/hooks/use-list-query";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
 import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
@@ -57,7 +57,7 @@ const columns: Column<MaintenanceOrder>[] = [
 export function MaintenanceScreen() {
   // maintenance_orders.asset_id é FK not null — mesmo caso de movements: precisa de um
   // seletor de ativo existente, não dá pra criar a ordem "solta".
-  const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
 
   const createFields: FormFieldDef[] = [
     { name: "code", label: "Código da OS", required: true, placeholder: "OS-0001" },

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useListQuery } from "@/shared/hooks/use-list-query";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
 import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
@@ -49,7 +49,7 @@ const createFields: FormFieldDef[] = [
  * computa a contagem ao vivo a partir de `assets`.
  */
 export function EmployeesScreen() {
-  const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
 
   const assetsByEmployeeId = useMemo(() => {
     const map = new Map<string, Asset[]>();

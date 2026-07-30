@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useListQuery } from "@/shared/hooks/use-list-query";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
 import type { FormFieldDef, SelectFieldOption } from "@/shared/components/resource-form-dialog";
@@ -35,6 +35,11 @@ export const assetColumns: Column<Asset>[] = [
   },
 ];
 
+const assetRangeFilters = [
+  { key: "purchase_value", label: "Valor de compra", type: "number" as const },
+  { key: "purchase_date", label: "Data de compra", type: "date" as const },
+];
+
 export const assetStatusOptions = [
   { value: "all", label: "Todos os status" },
   { value: "available", label: "Disponível" },
@@ -67,7 +72,7 @@ const assetConditionOptions = [
  * é um recorte client-side da mesma tabela `assets`, ver `EquipmentScreen.tsx`) pro select de
  * "Responsável" que alimenta o painel "Quem está com o quê" do dashboard. */
 export function useEmployeeOptions(): SelectFieldOption[] {
-  const { data: employees = [] } = useQuery({
+  const { data: employees = [] } = useListQuery({
     queryKey: employeesListQueryKey,
     queryFn: listEmployees,
   });
@@ -161,6 +166,7 @@ export function AssetsScreen() {
       statusOf={(row) => row.status}
       columns={assetColumns}
       statusOptions={assetStatusOptions}
+      rangeFilters={assetRangeFilters}
       createLabel="Novo ativo"
       createFields={buildAssetFields(assetKindOptions, employeeOptions)}
       onCreate={(values) => createAsset(values as Partial<Asset>)}

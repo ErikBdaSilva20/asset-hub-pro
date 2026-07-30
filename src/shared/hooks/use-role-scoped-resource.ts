@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { listEmployees, employeesListQueryKey } from "@/lib/data/employees.repo";
 import { canManageCatalog } from "@/shared/utils/permissions";
+import { LIST_QUERY_OPTIONS } from "@/shared/utils/query-defaults";
 import { findEmployeeByEmail } from "@/shared/utils/find-employee-by-email";
 import { scopeToAssignee } from "@/shared/utils/scope-to-assignee";
 import { useCurrentEmployee } from "./use-current-employee";
@@ -52,7 +53,7 @@ export function useRoleScopedResource<T>(
       queryClient.fetchQuery({
         queryKey: employeesListQueryKey,
         queryFn: listEmployees,
-        staleTime: 30_000,
+        ...LIST_QUERY_OPTIONS,
       }),
     ]);
 

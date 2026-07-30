@@ -1,11 +1,13 @@
 import { useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { useListQuery } from "@/shared/hooks/use-list-query";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
 import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
 import type { Column } from "@/shared/components/data-table";
 import {
   createLicense,
+  effectiveLicenseStatus,
   listLicenses,
   removeLicense,
   updateLicense,
@@ -25,6 +27,11 @@ import { canManageCatalog, isAdmin } from "@/shared/utils/permissions";
 const muted = (value: string | null | undefined) => (
   <span className="text-muted-foreground">{value ?? "—"}</span>
 );
+
+const rangeFilters = [
+  { key: "cost", label: "Custo", type: "number" as const },
+  { key: "renewal_date", label: "Renovação", type: "date" as const },
+];
 
 const statusOptions = [
   { value: "all", label: "Todos os status" },
@@ -79,7 +86,11 @@ const baseColumns: Column<License>[] = [
     cell: (row) => <span className="font-medium">{row.name}</span>,
   },
   { key: "vendor", header: "Fornecedor", cell: (row) => muted(row.vendor) },
-  { key: "status", header: "Status", cell: (row) => <StatusBadge status={row.status} /> },
+  {
+    key: "status",
+    header: "Status",
+    cell: (row) => <StatusBadge status={effectiveLicenseStatus(row)} />,
+  },
   {
     key: "renewal",
     header: "Renovação",
@@ -110,12 +121,12 @@ export function LicensesScreen() {
   const readOnly = !canManageCatalog(role);
   const queryClient = useQueryClient();
 
-  const { data: assignments = [] } = useQuery({
+  const { data: assignments = [] } = useListQuery({
     queryKey: ["license_assignments", "list"],
     queryFn: listLicenseAssignments,
     enabled: admin,
   });
-  const { data: employees = [] } = useQuery({
+  const { data: employees = [] } = useListQuery({
     queryKey: employeesListQueryKey,
     queryFn: listEmployees,
     enabled: admin,
@@ -193,7 +204,7 @@ export function LicensesScreen() {
       description="Assinaturas e licenças de software centralizadas: custo, periodicidade e responsável."
       resource="licenses"
       list={listLicenses}
-      statusOf={(row) => row.status}
+      statusOf={effectiveLicenseStatus}
       createLabel="Nova assinatura"
       createFields={createFields}
       onCreate={handleCreate}
@@ -208,6 +219,7 @@ export function LicensesScreen() {
         };
       }}
       statusOptions={statusOptions}
+      rangeFilters={rangeFilters}
       columns={columns}
       readOnly={readOnly}
       detail={(row) => ({
@@ -216,7 +228,7 @@ export function LicensesScreen() {
         content: (
           <DetailGrid
             items={[
-              { label: "Status", value: <StatusBadge status={row.status} /> },
+              { label: "Status", value: <StatusBadge status={effectiveLicenseStatus(row)} /> },
               {
                 label: "Periodicidade",
                 value:

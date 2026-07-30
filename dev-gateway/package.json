@@ -5,7 +5,8 @@
   "description": "Réplica local do tenant-gateway (Better-Auth + /data/:table genérico) para desenvolver o AssetHub sem acesso ao gateway/Neon reais.",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "migrate": "tsx scripts/migrate.ts"
+    "migrate": "tsx scripts/migrate.ts",
+    "seed:heavy": "tsx scripts/seed-heavy.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

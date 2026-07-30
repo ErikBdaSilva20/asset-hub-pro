@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useListQuery } from "@/shared/hooks/use-list-query";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { ResourcePage } from "@/shared/components/resource-page";
 import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
@@ -43,7 +43,7 @@ const columns: Column<Movement>[] = [
 export function MovementsScreen() {
   // movements.asset_id é FK not null — o formulário precisa de um seletor de ativo existente,
   // não dá pra criar uma movimentação "solta". Reaproveita o cache de ["assets","list"].
-  const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
 
   const createFields: FormFieldDef[] = [
     {

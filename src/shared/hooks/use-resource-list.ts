@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import type { ListParams, Paginated } from "@/shared/types";
+import { useListQuery } from "@/shared/hooks/use-list-query";
 
-function matches(record: unknown, search: string) {
-  return JSON.stringify(record).toLowerCase().includes(search.toLowerCase());
+function buildHaystack(record: unknown): string {
+  return JSON.stringify(record).toLowerCase();
 }
 
 /**
@@ -21,31 +21,60 @@ export function useResourceList<T extends { id: string }>(
    * num 404 que já sabemos que vai falhar de novo. Omitido = comportamento padrão da lib. */
   options?: { retry?: boolean | number },
 ) {
-  const query = useQuery<T[]>({
+  const query = useListQuery<T[]>({
     queryKey: [resource, "list"],
     queryFn: fetchList,
-    staleTime: 30_000,
     retry: options?.retry,
   });
 
-  const data = useMemo<Paginated<T> | undefined>(() => {
+  // Um "índice de busca" por registro, recalculado só quando os dados mudam — não a cada tecla
+  // digitada. Com listas grandes, re-serializar cada registro por keystroke (o que o código
+  // fazia antes) trava a UI; guardando o texto já em minúsculo, a busca vira um .includes()
+  // simples a cada tecla, não um JSON.stringify de tudo de novo.
+  const haystackById = useMemo(() => {
+    if (!query.data) return null;
+    return new Map(query.data.map((item) => [item.id, buildHaystack(item)]));
+  }, [query.data]);
+
+  const filtered = useMemo(() => {
     if (!query.data) return undefined;
-    const { page = 1, pageSize = 10, search = "", status } = params;
+    const { search, status } = params;
 
     let items = query.data;
-    if (search) items = items.filter((item) => matches(item, search));
+    if (search) {
+      const term = search.toLowerCase();
+      items = items.filter((item) => haystackById?.get(item.id)?.includes(term));
+    }
     if (status && status !== "all" && statusOf) {
       items = items.filter((item) => statusOf(item) === status);
     }
+    for (const [key, range] of Object.entries(params.ranges ?? {})) {
+      if (!range?.min && !range?.max) continue;
+      items = items.filter((item) => {
+        const raw = (item as Record<string, unknown>)[key];
+        if (raw === null || raw === undefined) return false;
+        const value = typeof raw === "string" ? Date.parse(raw) : Number(raw);
+        if (range.min && value < (Date.parse(range.min) || Number(range.min))) return false;
+        if (range.max && value > (Date.parse(range.max) || Number(range.max))) return false;
+        return true;
+      });
+    }
+    return items;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data, haystackById, params.search, params.status, params.ranges, statusOf]);
 
+  const data = useMemo<Paginated<T> | undefined>(() => {
+    if (!filtered) return undefined;
+    const { page = 1, pageSize = 10 } = params;
     const start = (page - 1) * pageSize;
     return {
-      items: items.slice(start, start + pageSize),
-      total: items.length,
+      items: filtered.slice(start, start + pageSize),
+      total: filtered.length,
       page,
       pageSize,
     };
-  }, [query.data, params, statusOf]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, params.page, params.pageSize]);
 
   return {
     data,

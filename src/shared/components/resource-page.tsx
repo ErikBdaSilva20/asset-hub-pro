@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Download, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Loader2, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { downloadCsv, parseCsv, runWithConcurrency, toCsv } from "@/shared/utils/csv";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -32,6 +33,7 @@ import { ResourceFormDialog, type FormFieldDef } from "@/shared/components/resou
 import { useListState } from "@/shared/hooks/use-list-state";
 import { useResourceList } from "@/shared/hooks/use-resource-list";
 import { getErrorMessage } from "@/shared/utils/errors";
+import type { RangeFilterDef } from "@/shared/types";
 
 interface ResourcePageProps<T extends { id: string }> {
   title: string;
@@ -41,6 +43,8 @@ interface ResourcePageProps<T extends { id: string }> {
   statusOf?: (item: T) => string;
   columns: Column<T>[];
   statusOptions?: FilterOption[];
+  /** Campos filtráveis por intervalo (data/número), ex.: custo ou data de renovação entre X e Y. */
+  rangeFilters?: RangeFilterDef[];
   searchPlaceholder?: string;
   createLabel?: string;
   /** Config do formulário do modal "Novo X". Sem isso (ou sem onCreate), o botão fica desabilitado. */
@@ -81,6 +85,7 @@ export function ResourcePage<T extends { id: string }>({
   statusOf,
   columns,
   statusOptions,
+  rangeFilters,
   searchPlaceholder,
   createLabel = "Novo registro",
   createFields,
@@ -104,14 +109,61 @@ export function ResourcePage<T extends { id: string }>({
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const detailData = selected && detail ? detail(selected) : null;
   const queryClient = useQueryClient();
   const canCreate = Boolean(createFields && onCreate) && !readOnly;
   const resolvedEditFields = editFields ?? createFields;
   const canEdit = Boolean(resolvedEditFields && onUpdate) && !readOnly;
   const canDelete = Boolean(onDelete) && !readOnly;
+  const canImport = canCreate;
 
   const invalidateList = () => queryClient.invalidateQueries({ queryKey: [resource, "list"] });
+
+  // Exporta o dataset inteiro (não só a página atual) — busca de novo em vez de reaproveitar a
+  // lista paginada/filtrada em tela, que é só um recorte do que tem no servidor.
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const rows = await fetchList();
+      if (rows.length === 0) {
+        toast.info("Nada pra exportar ainda.");
+        return;
+      }
+      downloadCsv(resource, toCsv(rows as unknown as Record<string, unknown>[]));
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Não foi possível exportar."));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // permite re-selecionar o mesmo arquivo depois
+    if (!file || !onCreate) return;
+
+    setImporting(true);
+    try {
+      const rows = parseCsv(await file.text());
+      if (rows.length === 0) {
+        toast.info("Nenhuma linha reconhecida no CSV.");
+        return;
+      }
+      // Concorrência limitada: uma a uma seria lento pra centenas de linhas; todas de uma vez
+      // sobrecarrega o gateway com centenas de POSTs simultâneos.
+      const { ok, failed } = await runWithConcurrency(rows, 8, (row) => onCreate(row));
+      await invalidateList();
+      if (failed === 0) toast.success(`${ok} registros importados.`);
+      else toast.warning(`${ok} importados, ${failed} falharam (dado inválido ou incompleto).`);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Não foi possível ler o CSV."));
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const handleCreate = async (values: Record<string, unknown>) => {
     if (!onCreate) return;
@@ -154,9 +206,38 @@ export function ResourcePage<T extends { id: string }>({
         breadcrumbs={[{ label: "AssetHub", to: "/dashboard" }, { label: title }]}
         actions={
           <>
-            <Button variant="outline" size="sm">
-              <Download className="size-4" /> Exportar
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>
+              {exporting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
+              Exportar
             </Button>
+            {canImport && (
+              <>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={handleImportFile}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={importing}
+                  onClick={() => importInputRef.current?.click()}
+                >
+                  {importing ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Upload className="size-4" />
+                  )}
+                  Importar CSV
+                </Button>
+              </>
+            )}
             {!readOnly && (
               <Button size="sm" disabled={!canCreate} onClick={() => setCreateOpen(true)}>
                 <Plus className="size-4" /> {createLabel}
@@ -191,6 +272,9 @@ export function ResourcePage<T extends { id: string }>({
             status={list.status}
             onStatus={list.setStatus}
             statusOptions={statusOptions}
+            rangeFilters={rangeFilters}
+            ranges={list.ranges}
+            onRangeChange={list.setRange}
             onReset={list.reset}
           />
         }

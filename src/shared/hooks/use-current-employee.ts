@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useListQuery } from "@/shared/hooks/use-list-query";
 import { useAuth } from "@/lib/auth";
 import { listEmployees, employeesListQueryKey } from "@/lib/data/employees.repo";
 import { findEmployeeByEmail } from "@/shared/utils/find-employee-by-email";
@@ -21,10 +21,9 @@ export interface CurrentEmployeeState {
  */
 export function useCurrentEmployee(): CurrentEmployeeState {
   const { user } = useAuth();
-  const query = useQuery({
+  const query = useListQuery({
     queryKey: employeesListQueryKey,
     queryFn: listEmployees,
-    staleTime: 30_000,
   });
 
   const employee = useMemo(

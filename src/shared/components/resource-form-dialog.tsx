@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/shared/utils/errors";
+import { dateInputValueToISO, toDateInputValue } from "@/shared/utils/format";
 
 /**
  * Formulário de criação genérico, dirigido por config (`FormFieldDef[]`). Cada tela declara
@@ -74,8 +75,10 @@ function buildValues(
     if (existing === undefined || existing === null) {
       values[field.name] = field.defaultValue ?? (field.type === "checkbox" ? false : "");
     } else if (field.type === "date" && typeof existing === "string") {
-      // <input type="date"> só aceita "AAAA-MM-DD" — os registros vêm com timestamp ISO completo.
-      values[field.name] = existing.slice(0, 10);
+      // <input type="date"> só aceita "AAAA-MM-DD". Extrai o dia civil em UTC-3 (não os 10
+      // primeiros caracteres do ISO cru) — um registro salvo com hora embutida perto da
+      // meia-noite podia cair no dia UTC errado ao simplesmente cortar a string.
+      values[field.name] = toDateInputValue(existing);
     } else {
       values[field.name] = existing as string | number | boolean;
     }
@@ -126,10 +129,18 @@ export function ResourceFormDialog({
     // Itera sobre `values` (não só `fields`) pra incluir também os campos que um `deriveFields`
     // injetou sem ter um <Select>/<Input> próprio declarado.
     const numberFields = new Set(fields.filter((f) => f.type === "number").map((f) => f.name));
+    // <input type="date"> manda "AAAA-MM-DD" sem fuso — mandar isso cru faz o Postgres (sessão em
+    // UTC) gravar meia-noite UTC, um dia atrás de meia-noite em UTC-3. Converte pro instante
+    // certo (meia-noite UTC-3) antes de enviar.
+    const dateFields = new Set(fields.filter((f) => f.type === "date").map((f) => f.name));
     const payload: Record<string, unknown> = {};
     for (const [name, raw] of Object.entries(values)) {
       if (isEmpty(raw)) continue;
-      payload[name] = numberFields.has(name) ? Number(raw) : raw;
+      payload[name] = numberFields.has(name)
+        ? Number(raw)
+        : dateFields.has(name) && typeof raw === "string"
+          ? dateInputValueToISO(raw)
+          : raw;
     }
 
     setSubmitting(true);
@@ -157,7 +168,10 @@ export function ResourceFormDialog({
             {fields.map((field) => (
               <div
                 key={field.name}
-                className={cn("space-y-1.5", field.type === "textarea" && "sm:col-span-2")}
+                // min-w-0: sem isso, o item do grid herda min-width:auto (= min-content) do
+                // filho — um <Select>/<Input> com texto longo empurra a célula (e o input em si)
+                // pra fora do modal, mesmo com grid-cols-2 (minmax(0,1fr)) na fileira.
+                className={cn("min-w-0 space-y-1.5", field.type === "textarea" && "sm:col-span-2")}
               >
                 <Label htmlFor={field.name}>
                   {field.label}

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useListQuery } from "@/shared/hooks/use-list-query";
 import { Boxes, CircleDollarSign, PackageCheck, Wrench } from "lucide-react";
 import { PageContainer, PageHeader } from "@/shared/components/page-header";
 import { StatCard } from "@/shared/components/stat-card";
@@ -19,8 +19,8 @@ import { isAdmin } from "@/shared/utils/permissions";
 
 export function DashboardPage() {
   const { role } = useAuth();
-  const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
-  const { data: maintenanceOrders = [] } = useQuery({
+  const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: maintenanceOrders = [] } = useListQuery({
     queryKey: ["maintenance_orders", "list"],
     queryFn: listMaintenanceOrders,
   });

@@ -1,7 +1,16 @@
 import type { ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -10,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import type { RangeFilterDef, RangeValue } from "@/shared/types";
 import { EmptyState, ErrorState, LoadingOverlay, TableSkeleton } from "./states";
 
 export interface Column<T> {
@@ -32,6 +42,11 @@ interface TableToolbarProps {
   status?: string;
   onStatus?: (value: string) => void;
   statusOptions?: FilterOption[];
+  /** Campos filtráveis por intervalo (data ou número) — ex.: custo entre X e Y, renovação entre
+   * datas. Reutilizável por qualquer tela que declare `rangeFilters`, sem lógica própria. */
+  rangeFilters?: RangeFilterDef[];
+  ranges?: Record<string, RangeValue>;
+  onRangeChange?: (key: string, value: RangeValue) => void;
   actions?: ReactNode;
   onReset?: () => void;
 }
@@ -43,10 +58,14 @@ export function TableToolbar({
   status,
   onStatus,
   statusOptions,
+  rangeFilters,
+  ranges = {},
+  onRangeChange,
   actions,
   onReset,
 }: TableToolbarProps) {
-  const dirty = Boolean(search) || (status && status !== "all");
+  const activeRanges = Object.values(ranges).filter((r) => r?.min || r?.max).length;
+  const dirty = Boolean(search) || (status && status !== "all") || activeRanges > 0;
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2.5">
@@ -74,6 +93,52 @@ export function TableToolbar({
             ))}
           </SelectContent>
         </Select>
+      )}
+
+      {rangeFilters && rangeFilters.length > 0 && onRangeChange && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 bg-muted text-xs">
+              <CalendarRange className="size-3.5" />
+              Filtros
+              {activeRanges > 0 && (
+                <span className="rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
+                  {activeRanges}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72 space-y-3">
+            {rangeFilters.map((filter) => {
+              const value = ranges[filter.key] ?? {};
+              return (
+                <div key={filter.key} className="space-y-1.5">
+                  <Label className="text-xs">{filter.label}</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type={filter.type}
+                      value={value.min ?? ""}
+                      onChange={(event) =>
+                        onRangeChange(filter.key, { ...value, min: event.target.value })
+                      }
+                      placeholder="De"
+                      className="h-8 text-xs"
+                    />
+                    <Input
+                      type={filter.type}
+                      value={value.max ?? ""}
+                      onChange={(event) =>
+                        onRangeChange(filter.key, { ...value, max: event.target.value })
+                      }
+                      placeholder="Até"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </PopoverContent>
+        </Popover>
       )}
 
       {dirty && onReset && (

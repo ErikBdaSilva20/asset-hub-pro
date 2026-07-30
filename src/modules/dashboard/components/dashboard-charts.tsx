@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useListQuery } from "@/shared/hooks/use-list-query";
 import {
   Bar,
   BarChart,
@@ -20,6 +20,22 @@ import { formatCurrency } from "@/shared/utils/format";
  * assinatura mensal de R$100 entraria como R$100/ano em vez de R$1200/ano. */
 function annualizedLicenseCost(cost: number, billingPeriod: "monthly" | "annual") {
   return billingPeriod === "monthly" ? cost * 12 : cost;
+}
+
+const MAX_CHART_BARS = 8;
+
+/** Com poucos dados, "categoria" é uma dimensão de poucos valores — mas com volume real (visto
+ * com o seed pesado: 19 categorias distintas só em Ativos) o gráfico de barras vira uma parede
+ * de rótulos ilegíveis. Mantém as maiores e soma o resto em "Outras", igual qualquer dashboard
+ * de verdade lida com cardinalidade alta numa dimensão categórica. */
+function topNWithOthers(
+  entries: { name: string; total: number }[],
+  max = MAX_CHART_BARS,
+): { name: string; total: number }[] {
+  if (entries.length <= max) return entries;
+  const top = entries.slice(0, max - 1);
+  const rest = entries.slice(max - 1).reduce((sum, entry) => sum + entry.total, 0);
+  return [...top, { name: "Outras", total: rest }];
 }
 
 const axisProps = {
@@ -46,13 +62,13 @@ const tooltipStyle = {
  * join) — vem de `categories`, dinâmico, sem nada fixo no código.
  */
 export function SpendByCategoryChart() {
-  const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
-  const { data: maintenanceOrders = [] } = useQuery({
+  const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: maintenanceOrders = [] } = useListQuery({
     queryKey: ["maintenance_orders", "list"],
     queryFn: listMaintenanceOrders,
   });
-  const { data: ppes = [] } = useQuery({ queryKey: ["ppes", "list"], queryFn: listPpes });
-  const { data: licenses = [] } = useQuery({
+  const { data: ppes = [] } = useListQuery({ queryKey: ["ppes", "list"], queryFn: listPpes });
+  const { data: licenses = [] } = useListQuery({
     queryKey: ["licenses", "list"],
     queryFn: listLicenses,
   });
@@ -76,9 +92,10 @@ export function SpendByCategoryChart() {
       addSpend(license.category, annualizedLicenseCost(license.cost, license.billing_period));
     }
 
-    return Array.from(totals, ([name, total]) => ({ name, total })).sort(
+    const sorted = Array.from(totals, ([name, total]) => ({ name, total })).sort(
       (a, b) => b.total - a.total,
     );
+    return topNWithOthers(sorted);
   }, [assets, maintenanceOrders, ppes, licenses]);
 
   return (
@@ -125,7 +142,7 @@ export function SpendByCategoryChart() {
 }
 
 export function CategoryChart() {
-  const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
 
   const assetsByCategory = useMemo(() => {
     const counts = new Map<string, number>();
@@ -133,7 +150,10 @@ export function CategoryChart() {
       const key = asset.category ?? "Sem categoria";
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-    return Array.from(counts, ([name, total]) => ({ name, total }));
+    const sorted = Array.from(counts, ([name, total]) => ({ name, total })).sort(
+      (a, b) => b.total - a.total,
+    );
+    return topNWithOthers(sorted);
   }, [assets]);
 
   return (

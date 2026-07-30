@@ -1,10 +1,17 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useListQuery } from "@/shared/hooks/use-list-query";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
 import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
 import type { Column } from "@/shared/components/data-table";
-import { createPpe, listPpes, removePpe, updatePpe, type Ppe } from "@/lib/data/ppes.repo";
+import {
+  createPpe,
+  effectivePpeStatus,
+  listPpes,
+  removePpe,
+  updatePpe,
+  type Ppe,
+} from "@/lib/data/ppes.repo";
 import { listPpeRequirements } from "@/lib/data/ppe-requirements.repo";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
@@ -27,7 +34,11 @@ const columns: Column<Ppe>[] = [
   { key: "category", header: "Categoria", cell: (row) => muted(row.category) },
   { key: "assignee", header: "Colaborador", cell: (row) => muted(row.assignee) },
   { key: "department", header: "Departamento", cell: (row) => muted(row.department) },
-  { key: "status", header: "Status", cell: (row) => <StatusBadge status={row.status} /> },
+  {
+    key: "status",
+    header: "Status",
+    cell: (row) => <StatusBadge status={effectivePpeStatus(row)} />,
+  },
   {
     key: "expires",
     header: "Validade",
@@ -83,7 +94,7 @@ function buildCreateFields(nameOptions: string[]): FormFieldDef[] {
 
 export function PpeScreen() {
   const { list, readOnly, emptyState } = useRoleScopedResource(listPpes, (row) => row.assignee_id);
-  const { data: requirements = [] } = useQuery({
+  const { data: requirements = [] } = useListQuery({
     queryKey: ["ppe_requirements", "list"],
     queryFn: listPpeRequirements,
   });
@@ -100,7 +111,7 @@ export function PpeScreen() {
       description="Equipamentos de proteção individual com CA, validade e comprovação de entrega."
       resource="ppes"
       list={list}
-      statusOf={(row) => row.status}
+      statusOf={effectivePpeStatus}
       createLabel="Nova entrega de EPI"
       createFields={createFields}
       onCreate={(values) => createPpe(values as Partial<Ppe>)}
@@ -117,7 +128,7 @@ export function PpeScreen() {
         content: (
           <DetailGrid
             items={[
-              { label: "Status", value: <StatusBadge status={row.status} /> },
+              { label: "Status", value: <StatusBadge status={effectivePpeStatus(row)} /> },
               { label: "CA", value: row.ca ?? "—" },
               { label: "Colaborador", value: row.assignee ?? "—" },
               { label: "Departamento", value: row.department ?? "—" },

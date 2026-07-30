@@ -1,17 +1,23 @@
 import { useMemo, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useListQuery } from "@/shared/hooks/use-list-query";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, CalendarClock, KeyRound, ShieldAlert, Wrench } from "lucide-react";
 import { listAssets, type Asset } from "@/lib/data/assets.repo";
 import { listEmployees } from "@/lib/data/employees.repo";
-import { listLicenses } from "@/lib/data/licenses.repo";
+import { effectiveLicenseStatus, listLicenses } from "@/lib/data/licenses.repo";
 import { listMaintenanceOrders } from "@/lib/data/maintenance.repo";
 import { listMovements } from "@/lib/data/movements.repo";
 import { listPpeRequirements } from "@/lib/data/ppe-requirements.repo";
-import { listPpes } from "@/lib/data/ppes.repo";
+import { effectivePpeStatus, listPpes } from "@/lib/data/ppes.repo";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { UserChip } from "@/shared/components/avatar-group";
-import { daysUntil, formatCurrency, formatDate, formatRelative } from "@/shared/utils/format";
+import {
+  daysUntil,
+  EXPIRING_SOON_DAYS,
+  formatCurrency,
+  formatDate,
+  formatRelative,
+} from "@/shared/utils/format";
 
 function PanelHeader({ title, to }: { title: string; to: string }) {
   return (
@@ -31,7 +37,7 @@ function recentMovements<T extends { occurred_at: string }>(movements: T[], limi
 }
 
 export function RecentMovements() {
-  const { data: movements = [] } = useQuery({
+  const { data: movements = [] } = useListQuery({
     queryKey: ["movements", "list"],
     queryFn: listMovements,
   });
@@ -72,7 +78,7 @@ const ACTIVITY_VERBS: Record<string, string> = {
 };
 
 export function RecentActivity() {
-  const { data: movements = [] } = useQuery({
+  const { data: movements = [] } = useListQuery({
     queryKey: ["movements", "list"],
     queryFn: listMovements,
   });
@@ -107,12 +113,12 @@ export function RecentActivity() {
  * decisões desse tipo neste projeto).
  */
 export function AssignedEquipmentPanel() {
-  const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
-  const { data: employees = [] } = useQuery({
+  const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: employees = [] } = useListQuery({
     queryKey: ["employees", "list"],
     queryFn: listEmployees,
   });
-  const { data: requirements = [] } = useQuery({
+  const { data: requirements = [] } = useListQuery({
     queryKey: ["ppe_requirements", "list"],
     queryFn: listPpeRequirements,
   });
@@ -186,22 +192,29 @@ export function AssignedEquipmentPanel() {
 }
 
 export function ExpiringPanel() {
-  const { data: assets = [] } = useQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
-  const { data: licenses = [] } = useQuery({
+  const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: licenses = [] } = useListQuery({
     queryKey: ["licenses", "list"],
     queryFn: listLicenses,
   });
-  const { data: ppes = [] } = useQuery({ queryKey: ["ppes", "list"], queryFn: listPpes });
+  const { data: ppes = [] } = useListQuery({ queryKey: ["ppes", "list"], queryFn: listPpes });
 
+  // Mesma regra de "vencendo" (EXPIRING_SOON_DAYS, 1 mês) usada em Assinaturas e EPIs — antes
+  // este painel usava 120 dias só pra garantia, um limiar solto que não batia com o resto do
+  // sistema.
   const warranties = assets
     .filter((asset) => {
       const days = daysUntil(asset.warranty_until);
-      return days !== null && days > 0 && days < 120;
+      return days !== null && days >= 0 && days <= EXPIRING_SOON_DAYS;
     })
     .slice(0, 4);
 
-  const expiringLicenses = licenses.filter((license) => license.status !== "active").slice(0, 3);
-  const expiringPpe = ppes.filter((ppe) => ppe.status !== "valid").slice(0, 3);
+  const expiringLicenses = licenses
+    .filter((license) => ["expiring", "expired"].includes(effectiveLicenseStatus(license)))
+    .slice(0, 3);
+  const expiringPpe = ppes
+    .filter((ppe) => ["expiring", "expired"].includes(effectivePpeStatus(ppe)))
+    .slice(0, 3);
 
   return (
     <div className="panel overflow-hidden">
@@ -234,7 +247,7 @@ export function ExpiringPanel() {
               title={license.name}
               subtitle={license.vendor ?? "—"}
               value={formatDate(license.renewal_date)}
-              status={license.status}
+              status={effectiveLicenseStatus(license)}
             />
           ))}
         </AlertGroup>
@@ -245,7 +258,7 @@ export function ExpiringPanel() {
               title={ppe.name}
               subtitle={ppe.assignee ?? "—"}
               value={formatDate(ppe.expires_at)}
-              status={ppe.status}
+              status={effectivePpeStatus(ppe)}
             />
           ))}
         </AlertGroup>
@@ -317,7 +330,7 @@ function AlertRow({
 const BILLING_PERIOD_SUFFIX: Record<string, string> = { monthly: "/mês", annual: "/ano" };
 
 export function ActiveSubscriptions() {
-  const { data: licenses = [] } = useQuery({
+  const { data: licenses = [] } = useListQuery({
     queryKey: ["licenses", "list"],
     queryFn: listLicenses,
   });
@@ -348,7 +361,7 @@ export function ActiveSubscriptions() {
 }
 
 export function MaintenanceQueue() {
-  const { data: maintenanceOrders = [] } = useQuery({
+  const { data: maintenanceOrders = [] } = useListQuery({
     queryKey: ["maintenance_orders", "list"],
     queryFn: listMaintenanceOrders,
   });
