@@ -13,7 +13,7 @@ import { listAssets } from "@/lib/data/assets.repo";
 import { listMaintenanceOrders } from "@/lib/data/maintenance.repo";
 import { listPpes } from "@/lib/data/ppes.repo";
 import { listLicenses } from "@/lib/data/licenses.repo";
-import { formatCurrency } from "@/shared/utils/format";
+import { formatCompactCurrency, formatCurrency } from "@/shared/utils/format";
 
 /** licenses.cost é o valor de UM período (billing_period), não sempre anual — precisa
  * normalizar antes de somar junto com custos já anuais (compra de ativo, EPI), senão uma
@@ -120,8 +120,8 @@ export function SpendByCategoryChart() {
             />
             <YAxis
               {...axisProps}
-              width={80}
-              tickFormatter={(value: number) => formatCurrency(value)}
+              width={64}
+              tickFormatter={(value: number) => formatCompactCurrency(value)}
             />
             <ChartTooltip
               contentStyle={tooltipStyle}

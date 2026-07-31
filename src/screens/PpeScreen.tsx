@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useListQuery } from "@/shared/hooks/use-list-query";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
-import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
+import type { FormFieldDef, SelectFieldOption } from "@/shared/components/resource-form-dialog";
 import type { Column } from "@/shared/components/data-table";
 import {
   createPpe,
@@ -13,8 +14,13 @@ import {
   type Ppe,
 } from "@/lib/data/ppes.repo";
 import { listPpeRequirements } from "@/lib/data/ppe-requirements.repo";
+import { createDepartment, listDepartments } from "@/lib/data/departments.repo";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
+import { useCategoryOptions } from "@/shared/hooks/use-category-options";
+import { useEmployeeOptions } from "@/shared/hooks/use-employee-options";
+import { findByNameCaseInsensitive } from "@/shared/utils/find-by-name";
+import { sortOptionsByLabel } from "@/shared/utils/sort-options";
 
 const mono = (value: string | null) => <span className="font-mono text-xs">{value ?? "—"}</span>;
 const muted = (value: string | null) => (
@@ -60,7 +66,14 @@ const columns: Column<Ppe>[] = [
  * outro, que quebraria a comparação com o exigido por função). Sem nenhum requisito cadastrado
  * ainda, cai pra texto livre — não bloqueia o cadastro de EPI por falta de configuração prévia.
  */
-function buildCreateFields(nameOptions: string[]): FormFieldDef[] {
+function buildCreateFields(
+  nameOptions: string[],
+  categoryOptions: SelectFieldOption[],
+  onCreateCategory: (name: string) => Promise<SelectFieldOption>,
+  employeeOptions: SelectFieldOption[],
+  departmentOptions: SelectFieldOption[],
+  onCreateDepartment: (name: string) => Promise<SelectFieldOption>,
+): FormFieldDef[] {
   const nameField: FormFieldDef =
     nameOptions.length > 0
       ? {
@@ -75,9 +88,33 @@ function buildCreateFields(nameOptions: string[]): FormFieldDef[] {
   return [
     nameField,
     { name: "ca", label: "CA" },
-    { name: "category", label: "Categoria" },
-    { name: "assignee", label: "Colaborador" },
-    { name: "department", label: "Departamento" },
+    {
+      name: "category_id",
+      label: "Categoria",
+      type: "combobox",
+      placeholder: "Sem categoria",
+      options: categoryOptions,
+      deriveFields: (option) => ({ category: option.label }),
+      onCreateOption: (name) => onCreateCategory(name),
+    },
+    {
+      name: "assignee_id",
+      label: "Colaborador",
+      type: "combobox",
+      placeholder: "Sem colaborador",
+      options: employeeOptions,
+      deriveFields: (option) => ({ assignee: option.label }),
+    },
+    // `ppes` não tem `department_id` no schema (só `department` texto) — a opção e o valor
+    // guardado são o mesmo nome, sem id por trás (ver `useDepartmentOptions` vs. o caso aqui).
+    {
+      name: "department",
+      label: "Departamento",
+      type: "combobox",
+      placeholder: "Sem departamento",
+      options: departmentOptions,
+      onCreateOption: (name) => onCreateDepartment(name),
+    },
     {
       name: "status",
       label: "Status",
@@ -94,16 +131,59 @@ function buildCreateFields(nameOptions: string[]): FormFieldDef[] {
 
 export function PpeScreen() {
   const { list, readOnly, emptyState } = useRoleScopedResource(listPpes, (row) => row.assignee_id);
+  const queryClient = useQueryClient();
   const { data: requirements = [] } = useListQuery({
     queryKey: ["ppe_requirements", "list"],
     queryFn: listPpeRequirements,
   });
+  const { data: departments = [] } = useListQuery({
+    queryKey: ["departments", "list"],
+    queryFn: listDepartments,
+  });
+  const { options: categoryOptions, createOption: createCategoryOption } =
+    useCategoryOptions("ppe");
+  const employeeOptions = useEmployeeOptions();
+
+  const departmentOptions = useMemo(
+    () =>
+      sortOptionsByLabel(
+        departments.map((department) => ({ value: department.name, label: department.name })),
+      ),
+    [departments],
+  );
+  const createDepartmentOption = useCallback(
+    async (name: string): Promise<SelectFieldOption> => {
+      const existing = findByNameCaseInsensitive(departments, name, (d) => d.name);
+      const department = existing ?? (await createDepartment({ name }));
+      if (!existing) await queryClient.invalidateQueries({ queryKey: ["departments", "list"] });
+      return { value: department.name, label: department.name };
+    },
+    [departments, queryClient],
+  );
 
   const nameOptions = useMemo(
     () => Array.from(new Set(requirements.map((requirement) => requirement.ppe_name))).sort(),
     [requirements],
   );
-  const createFields = useMemo(() => buildCreateFields(nameOptions), [nameOptions]);
+  const createFields = useMemo(
+    () =>
+      buildCreateFields(
+        nameOptions,
+        categoryOptions,
+        createCategoryOption,
+        employeeOptions,
+        departmentOptions,
+        createDepartmentOption,
+      ),
+    [
+      nameOptions,
+      categoryOptions,
+      createCategoryOption,
+      employeeOptions,
+      departmentOptions,
+      createDepartmentOption,
+    ],
+  );
 
   return (
     <ResourcePage

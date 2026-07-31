@@ -1,5 +1,3 @@
-import { useMemo } from "react";
-import { useListQuery } from "@/shared/hooks/use-list-query";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
 import type { FormFieldDef, SelectFieldOption } from "@/shared/components/resource-form-dialog";
@@ -11,9 +9,12 @@ import {
   updateAsset,
   type Asset,
 } from "@/lib/data/assets.repo";
-import { listEmployees, employeesListQueryKey } from "@/lib/data/employees.repo";
+import type { AssetKind } from "@/lib/data/types.gen";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
+import { useCategoryOptions } from "@/shared/hooks/use-category-options";
+import { useDepartmentOptions } from "@/shared/hooks/use-department-options";
+import { useEmployeeOptions } from "@/shared/hooks/use-employee-options";
 
 const mono = (value: string | null) => <span className="font-mono text-xs">{value ?? "—"}</span>;
 const muted = (value: string | null) => (
@@ -68,23 +69,13 @@ const assetConditionOptions = [
   { value: "damaged", label: "Danificado" },
 ];
 
-/** Mesma queryKey de `employeesListQueryKey` — reaproveitada por Ativos e Equipamentos (que só
- * é um recorte client-side da mesma tabela `assets`, ver `EquipmentScreen.tsx`) pro select de
- * "Responsável" que alimenta o painel "Quem está com o quê" do dashboard. */
-export function useEmployeeOptions(): SelectFieldOption[] {
-  const { data: employees = [] } = useListQuery({
-    queryKey: employeesListQueryKey,
-    queryFn: listEmployees,
-  });
-  return useMemo(
-    () => employees.map((employee) => ({ value: employee.id, label: employee.name })),
-    [employees],
-  );
-}
-
 export function buildAssetFields(
   kindOptions = assetKindOptions,
   employeeOptions: SelectFieldOption[] = [],
+  categoryOptions: SelectFieldOption[] = [],
+  onCreateCategory?: (name: string, values: Record<string, unknown>) => Promise<SelectFieldOption>,
+  departmentOptions: SelectFieldOption[] = [],
+  onCreateDepartment?: (name: string) => Promise<SelectFieldOption>,
 ): FormFieldDef[] {
   return [
     { name: "tag", label: "Etiqueta", required: true, placeholder: "AH-0001" },
@@ -104,16 +95,32 @@ export function buildAssetFields(
       defaultValue: "new",
       options: assetConditionOptions,
     },
-    { name: "category", label: "Categoria" },
+    {
+      name: "category_id",
+      label: "Categoria",
+      type: "combobox",
+      placeholder: "Sem categoria",
+      options: categoryOptions,
+      deriveFields: (option) => ({ category: option.label }),
+      onCreateOption: onCreateCategory,
+    },
     { name: "manufacturer", label: "Fabricante" },
     { name: "model", label: "Modelo" },
     { name: "serial_number", label: "Número de série" },
     { name: "supplier", label: "Fornecedor" },
-    { name: "department", label: "Departamento" },
+    {
+      name: "department_id",
+      label: "Departamento",
+      type: "combobox",
+      placeholder: "Sem departamento",
+      options: departmentOptions,
+      deriveFields: (option) => ({ department: option.label }),
+      onCreateOption: onCreateDepartment ? (name) => onCreateDepartment(name) : undefined,
+    },
     {
       name: "assignee_id",
       label: "Responsável",
-      type: "select",
+      type: "combobox",
       placeholder: "Sem responsável",
       options: employeeOptions,
       deriveFields: (option) => ({ assignee: option.label }),
@@ -156,6 +163,11 @@ export function AssetsScreen() {
     (row) => row.assignee_id,
   );
   const employeeOptions = useEmployeeOptions();
+  // Sem `kind` fixo: Ativos cobre todo tipo, então lista todas as categorias e usa o "Tipo" já
+  // escolhido no próprio formulário (values.kind) como kind da categoria nova, se precisar criar.
+  const { options: categoryOptions, createOption: createCategoryOption } = useCategoryOptions();
+  const { options: departmentOptions, createOption: createDepartmentOption } =
+    useDepartmentOptions();
 
   return (
     <ResourcePage
@@ -168,7 +180,14 @@ export function AssetsScreen() {
       statusOptions={assetStatusOptions}
       rangeFilters={assetRangeFilters}
       createLabel="Novo ativo"
-      createFields={buildAssetFields(assetKindOptions, employeeOptions)}
+      createFields={buildAssetFields(
+        assetKindOptions,
+        employeeOptions,
+        categoryOptions,
+        (name, values) => createCategoryOption(name, (values.kind as AssetKind) || undefined),
+        departmentOptions,
+        createDepartmentOption,
+      )}
       onCreate={(values) => createAsset(values as Partial<Asset>)}
       onUpdate={(id, values) => updateAsset(id, values as Partial<Asset>)}
       onDelete={(id) => removeAsset(id)}

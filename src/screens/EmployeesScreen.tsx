@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useListQuery } from "@/shared/hooks/use-list-query";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
@@ -12,7 +13,11 @@ import {
   type Employee,
 } from "@/lib/data/employees.repo";
 import { listAssets, type Asset } from "@/lib/data/assets.repo";
+import { auth } from "@/lib/data/client";
 import { formatDate } from "@/shared/utils/format";
+import { useDepartmentOptions } from "@/shared/hooks/use-department-options";
+import { useAuth } from "@/lib/auth";
+import { canManageCatalog, isAdmin } from "@/shared/utils/permissions";
 
 const muted = (value: string | null) => (
   <span className="text-muted-foreground">{value ?? "—"}</span>
@@ -25,21 +30,34 @@ const statusOptions = [
   { value: "offboarded", label: "Desligado" },
 ];
 
-const createFields: FormFieldDef[] = [
-  { name: "name", label: "Nome", required: true },
-  { name: "email", label: "E-mail", required: true },
-  { name: "role", label: "Cargo", required: true },
-  { name: "department", label: "Departamento" },
-  {
-    name: "status",
-    label: "Status",
-    type: "select",
-    defaultValue: "active",
-    options: statusOptions.filter((o) => o.value !== "all"),
-  },
-  { name: "location", label: "Local" },
-  { name: "hired_at", label: "Data de admissão", type: "date" },
-];
+export function buildCreateFields(
+  departmentOptions: FormFieldDef["options"],
+  onCreateDepartment: FormFieldDef["onCreateOption"],
+): FormFieldDef[] {
+  return [
+    { name: "name", label: "Nome", required: true },
+    { name: "email", label: "E-mail", required: true },
+    { name: "role", label: "Cargo", required: true },
+    {
+      name: "department_id",
+      label: "Departamento",
+      type: "combobox",
+      placeholder: "Sem departamento",
+      options: departmentOptions,
+      deriveFields: (option) => ({ department: option.label }),
+      onCreateOption: onCreateDepartment,
+    },
+    {
+      name: "status",
+      label: "Status",
+      type: "select",
+      defaultValue: "active",
+      options: statusOptions.filter((o) => o.value !== "all"),
+    },
+    { name: "location", label: "Local" },
+    { name: "hired_at", label: "Data de admissão", type: "date" },
+  ];
+}
 
 /**
  * Colaboradores tem uma coluna `assets_count` própria no banco, mas ela é só um contador
@@ -49,7 +67,31 @@ const createFields: FormFieldDef[] = [
  * computa a contagem ao vivo a partir de `assets`.
  */
 export function EmployeesScreen() {
+  const { role } = useAuth();
+  const readOnly = !canManageCatalog(role);
   const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { options: departmentOptions, createOption: createDepartmentOption } =
+    useDepartmentOptions();
+  const createFields = useMemo(
+    () => buildCreateFields(departmentOptions, createDepartmentOption),
+    [departmentOptions, createDepartmentOption],
+  );
+
+  // "Colaborador" (este diretório de RH) e "Usuário" (login em /users) são coisas diferentes,
+  // ligadas só pelo e-mail — ver EmployeesScreen/UsersScreen. `/api/auth/admin/*` é admin-only
+  // (RequireAuth em app.routes.tsx) e não confirmado em produção (GATEWAY-ADMIN-ENDPOINTS.md),
+  // então só busca pra admin e falha em silêncio (retry: false) — é só um indicador a mais, não
+  // pode derrubar a tela principal se o endpoint não responder.
+  const { data: usersResponse } = useQuery({
+    queryKey: ["admin-users", "list"],
+    queryFn: () => auth.listUsers(),
+    enabled: isAdmin(role),
+    retry: false,
+  });
+  const loginEmails = useMemo(
+    () => new Set((usersResponse?.users ?? []).map((user) => user.email.trim().toLowerCase())),
+    [usersResponse],
+  );
 
   const assetsByEmployeeId = useMemo(() => {
     const map = new Map<string, Asset[]>();
@@ -78,12 +120,29 @@ export function EmployeesScreen() {
       align: "right",
       cell: (row) => <span className="tabular">{assetsByEmployeeId.get(row.id)?.length ?? 0}</span>,
     },
+    ...(isAdmin(role)
+      ? [
+          {
+            key: "login",
+            header: "Login",
+            cell: (row: Employee) =>
+              loginEmails.has(row.email.trim().toLowerCase()) ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/10 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-success">
+                  <span className="size-1.5 rounded-full bg-current" />
+                  Tem login
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">Sem login</span>
+              ),
+          } satisfies Column<Employee>,
+        ]
+      : []),
   ];
 
   return (
     <ResourcePage
       title="Colaboradores"
-      description="Pessoas aptas a receber ativos, com departamento, centro de custo e carga atual."
+      description="Diretório de RH — quem pode receber ativos e EPIs, com cargo e departamento. Diferente de Usuários (login no sistema); os dois se ligam pelo e-mail."
       resource="employees"
       list={listEmployees}
       statusOf={(row) => row.status}
@@ -94,6 +153,7 @@ export function EmployeesScreen() {
       onDelete={(id) => removeEmployee(id)}
       statusOptions={statusOptions}
       columns={columns}
+      readOnly={readOnly}
       detail={(row) => {
         const heldAssets = assetsByEmployeeId.get(row.id) ?? [];
         return {

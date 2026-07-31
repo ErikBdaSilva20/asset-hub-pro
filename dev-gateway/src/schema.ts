@@ -37,7 +37,13 @@ export const TABLES: Record<string, TableDef> = {
     ],
   },
   employees: {
-    ownerScoped: true,
+    // Virou tabela lookup (era ownerScoped: true, herdado do padrão genérico da fundação —
+    // "cada um só vê o que criou", que nunca fez sentido pra um diretório de colaboradores
+    // mantido por admin/manager). Sem isso, `owner_id` ficava sempre = quem cadastrou o
+    // colaborador (o admin), então nenhum `rep` conseguia se auto-identificar via
+    // `useCurrentEmployee` (GET filtrado por `owner_id = próprio id` nunca batia com a própria
+    // linha). Efeito colateral correto: rep vira read-only aqui, igual assets/licenses/ppes.
+    ownerScoped: false,
     columns: [
       "name",
       "email",

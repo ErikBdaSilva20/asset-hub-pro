@@ -8,16 +8,30 @@ import {
   AssignedEquipmentPanel,
   ExpiringPanel,
   MaintenanceQueue,
+  PendingHandoffsPanel,
   RecentActivity,
   RecentMovements,
 } from "./components/dashboard-panels";
+import { RepDashboardPage } from "./rep-dashboard-page";
 import { listAssets } from "@/lib/data/assets.repo";
 import { listMaintenanceOrders } from "@/lib/data/maintenance.repo";
 import { formatCurrency, formatNumber } from "@/shared/utils/format";
 import { useAuth } from "@/lib/auth";
 import { isAdmin } from "@/shared/utils/permissions";
 
+/**
+ * O rep é quem "é o parque" (usa os ativos, não os gerencia) — a diferença do que ele precisa
+ * ver (o que muda, a ordem, o destaque de segurança) é grande o suficiente pra virar um
+ * componente dedicado (`RepDashboardPage`) em vez de mais um ternário aqui dentro. Ver
+ * TODO-REP-DASHBOARD.md pro levantamento original.
+ */
 export function DashboardPage() {
+  const { role } = useAuth();
+  if (role === "rep") return <RepDashboardPage />;
+  return <AdminManagerDashboard />;
+}
+
+function AdminManagerDashboard() {
   const { role } = useAuth();
   const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
   const { data: maintenanceOrders = [] } = useListQuery({
@@ -36,6 +50,8 @@ export function DashboardPage() {
         description="Indicadores consolidados do parque de ativos, vencimentos e operação do dia."
         breadcrumbs={[{ label: "AssetHub", to: "/dashboard" }, { label: "Dashboard" }]}
       />
+
+      <PendingHandoffsPanel />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

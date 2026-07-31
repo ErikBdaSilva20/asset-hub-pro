@@ -26,12 +26,23 @@ const currencyFormatter = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 2,
 });
 const numberFormatter = new Intl.NumberFormat("pt-BR");
+// Só pra rótulo de eixo de gráfico (ex.: SpendByCategoryChart) — largura reservada no eixo é
+// fixa, e o valor completo do `currencyFormatter` (2 casas decimais, sem abreviar) estoura pra
+// fora do card em cifras de milhão pra cima. O valor exato continua aparecendo no tooltip.
+const compactCurrencyFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  notation: "compact",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+});
 
 export const formatDate = (value?: string | null) =>
   value ? dateFormatter.format(new Date(value)) : "—";
 export const formatDateTime = (value?: string | null) =>
   value ? dateTimeFormatter.format(new Date(value)) : "—";
 export const formatCurrency = (value: number) => currencyFormatter.format(value);
+export const formatCompactCurrency = (value: number) => compactCurrencyFormatter.format(value);
 export const formatNumber = (value: number) => numberFormatter.format(value);
 
 /** "AAAA-MM-DD" do dia civil em UTC-3 pra um instante qualquer — mesmo formato que

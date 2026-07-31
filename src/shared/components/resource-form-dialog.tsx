@@ -1,5 +1,13 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -8,11 +16,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -20,9 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/shared/utils/errors";
 import { dateInputValueToISO, toDateInputValue } from "@/shared/utils/format";
+import { Check, ChevronsUpDown, Loader2, Plus } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 
 /**
  * Formulário de criação genérico, dirigido por config (`FormFieldDef[]`). Cada tela declara
@@ -35,7 +44,8 @@ export interface SelectFieldOption {
   label: string;
 }
 
-export type FormFieldType = "text" | "number" | "date" | "textarea" | "select" | "checkbox";
+export type FormFieldType =
+  "text" | "number" | "date" | "textarea" | "select" | "checkbox" | "combobox";
 
 export interface FormFieldDef {
   name: string;
@@ -45,10 +55,21 @@ export interface FormFieldDef {
   placeholder?: string;
   options?: SelectFieldOption[];
   defaultValue?: string | number | boolean;
-  /** Só pra type "select": ao escolher uma opção, mescla estes valores extra no formulário —
-   * ex. um select de colaborador (envia o id) que também preenche um campo de nome denormalizado.
-   * Reutilizável por qualquer campo futuro no mesmo formato (categoria, fornecedor, etc.). */
+  /** Só pra type "select"/"combobox": ao escolher uma opção, mescla estes valores extra no
+   * formulário — ex. um select de colaborador (envia o id) que também preenche um campo de nome
+   * denormalizado. Reutilizável por qualquer campo futuro no mesmo formato (categoria,
+   * fornecedor, etc.). */
   deriveFields?: (option: SelectFieldOption) => Record<string, unknown>;
+  /** Só pra type "combobox": chamado quando o texto digitado não bate com nenhuma opção
+   * existente, pra criar o registro na hora (ex. categoria/departamento novos) — recebe os
+   * valores atuais do formulário porque às vezes o registro novo depende de outro campo já
+   * escolhido (ex. a categoria herda o "Tipo" do ativo sendo criado). Ausente = combobox só de
+   * busca entre as opções existentes, sem oferecer "criar" (ex. colaborador, que tem campos
+   * obrigatórios demais pra caber aqui). */
+  onCreateOption?: (
+    inputValue: string,
+    currentValues: Record<string, unknown>,
+  ) => Promise<SelectFieldOption>;
 }
 
 interface ResourceFormDialogProps {
@@ -88,6 +109,113 @@ function buildValues(
 
 function isEmpty(value: unknown) {
   return value === "" || value === undefined || value === null;
+}
+
+/**
+ * Select com busca (cmdk) que opcionalmente deixa criar uma opção nova na hora — usado em vez
+ * do `<Select>` simples pra qualquer lookup que veio de texto livre antes (categoria,
+ * departamento) e agora escolhe de uma tabela de verdade. Sem `onCreateOption`, vira só um
+ * select buscável (ex. colaborador — ver `FormFieldDef.onCreateOption`).
+ */
+function ComboboxField({
+  value,
+  options,
+  placeholder,
+  onSelect,
+  onCreateOption,
+}: {
+  value: string;
+  options: SelectFieldOption[];
+  placeholder?: string;
+  onSelect: (option: SelectFieldOption) => void;
+  onCreateOption?: (inputValue: string) => Promise<SelectFieldOption>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [creating, setCreating] = useState(false);
+  const selected = options.find((option) => option.value === value);
+
+  const handleCreate = async () => {
+    const name = search.trim();
+    if (!onCreateOption || !name || creating) return;
+    setCreating(true);
+    try {
+      onSelect(await onCreateOption(name));
+      setOpen(false);
+      setSearch("");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearch("");
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          <span className={cn("truncate", !selected && "text-muted-foreground")}>
+            {selected ? selected.label : (placeholder ?? "Selecione…")}
+          </span>
+          <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar…" value={search} onValueChange={setSearch} />
+          <CommandList>
+            <CommandEmpty>
+              {onCreateOption && search.trim() ? (
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={creating}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-primary hover:bg-accent disabled:opacity-50"
+                >
+                  {creating ? (
+                    <Loader2 className="size-3.5 shrink-0 animate-spin" />
+                  ) : (
+                    <Plus className="size-3.5 shrink-0" />
+                  )}
+                  Criar "{search.trim()}"
+                </button>
+              ) : (
+                <span className="text-muted-foreground">Nada encontrado.</span>
+              )}
+            </CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.label}
+                  onSelect={() => {
+                    onSelect(option);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                >
+                  <Check
+                    className={cn("size-4", option.value === value ? "opacity-100" : "opacity-0")}
+                  />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function ResourceFormDialog({
@@ -208,6 +336,24 @@ export function ResourceFormDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                ) : field.type === "combobox" ? (
+                  <ComboboxField
+                    value={(values[field.name] as string) ?? ""}
+                    options={field.options ?? []}
+                    placeholder={field.placeholder}
+                    onCreateOption={
+                      field.onCreateOption
+                        ? (inputValue) => field.onCreateOption!(inputValue, values)
+                        : undefined
+                    }
+                    onSelect={(option) =>
+                      setValues((prev) => ({
+                        ...prev,
+                        [field.name]: option.value,
+                        ...(field.deriveFields ? field.deriveFields(option) : {}),
+                      }))
+                    }
+                  />
                 ) : field.type === "checkbox" ? (
                   <div className="flex h-9 items-center gap-2">
                     <Checkbox

@@ -1,9 +1,9 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useListQuery } from "@/shared/hooks/use-list-query";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { DetailGrid, ResourcePage } from "@/shared/components/resource-page";
-import type { FormFieldDef } from "@/shared/components/resource-form-dialog";
+import type { FormFieldDef, SelectFieldOption } from "@/shared/components/resource-form-dialog";
 import type { Column } from "@/shared/components/data-table";
 import {
   createLicense,
@@ -20,9 +20,13 @@ import {
   updateLicenseAssignment,
 } from "@/lib/data/license-assignments.repo";
 import { listEmployees, employeesListQueryKey } from "@/lib/data/employees.repo";
+import { createDepartment, listDepartments } from "@/lib/data/departments.repo";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { useAuth } from "@/lib/auth";
 import { canManageCatalog, isAdmin } from "@/shared/utils/permissions";
+import { useCategoryOptions } from "@/shared/hooks/use-category-options";
+import { findByNameCaseInsensitive } from "@/shared/utils/find-by-name";
+import { sortOptionsByLabel } from "@/shared/utils/sort-options";
 
 const muted = (value: string | null | undefined) => (
   <span className="text-muted-foreground">{value ?? "—"}</span>
@@ -51,33 +55,58 @@ const billingPeriodLabel: Record<License["billing_period"], string> = {
   annual: "/ano",
 };
 
-const baseFields: FormFieldDef[] = [
-  {
-    name: "name",
-    label: "Nome da assinatura",
-    required: true,
-    placeholder: "Claude, GPT, Netflix…",
-  },
-  { name: "vendor", label: "Fornecedor" },
-  {
-    name: "status",
-    label: "Status",
-    type: "select",
-    defaultValue: "active",
-    options: statusOptions.filter((o) => o.value !== "all"),
-  },
-  {
-    name: "billing_period",
-    label: "Periodicidade",
-    type: "select",
-    defaultValue: "annual",
-    options: billingPeriodOptions,
-  },
-  { name: "cost", label: "Custo", type: "number", defaultValue: 0 },
-  { name: "renewal_date", label: "Próxima renovação", type: "date" },
-  { name: "owner_department", label: "Departamento" },
-  { name: "category", label: "Categoria" },
-];
+// `licenses` não tem `category_id`/`owner_department` com FK de departamento no schema além da
+// categoria (que sim tem `category_id`, ver TABLES em dev-gateway/src/schema.ts) — `owner_department`
+// segue por nome, sem id, igual `ppes.department` (ver PpeScreen.tsx).
+function buildBaseFields(
+  categoryOptions: SelectFieldOption[],
+  onCreateCategory: (name: string) => Promise<SelectFieldOption>,
+  departmentOptions: SelectFieldOption[],
+  onCreateDepartment: (name: string) => Promise<SelectFieldOption>,
+): FormFieldDef[] {
+  return [
+    {
+      name: "name",
+      label: "Nome da assinatura",
+      required: true,
+      placeholder: "Claude, GPT, Netflix…",
+    },
+    { name: "vendor", label: "Fornecedor" },
+    {
+      name: "status",
+      label: "Status",
+      type: "select",
+      defaultValue: "active",
+      options: statusOptions.filter((o) => o.value !== "all"),
+    },
+    {
+      name: "billing_period",
+      label: "Periodicidade",
+      type: "select",
+      defaultValue: "annual",
+      options: billingPeriodOptions,
+    },
+    { name: "cost", label: "Custo", type: "number", defaultValue: 0 },
+    { name: "renewal_date", label: "Próxima renovação", type: "date" },
+    {
+      name: "owner_department",
+      label: "Departamento",
+      type: "combobox",
+      placeholder: "Sem departamento",
+      options: departmentOptions,
+      onCreateOption: (name) => onCreateDepartment(name),
+    },
+    {
+      name: "category_id",
+      label: "Categoria",
+      type: "combobox",
+      placeholder: "Sem categoria",
+      options: categoryOptions,
+      deriveFields: (option) => ({ category: option.label }),
+      onCreateOption: (name) => onCreateCategory(name),
+    },
+  ];
+}
 
 const baseColumns: Column<License>[] = [
   {
@@ -131,14 +160,49 @@ export function LicensesScreen() {
     queryFn: listEmployees,
     enabled: admin,
   });
+  const { data: departments = [] } = useListQuery({
+    queryKey: ["departments", "list"],
+    queryFn: listDepartments,
+  });
+  const { options: categoryOptions, createOption: createCategoryOption } =
+    useCategoryOptions("license");
 
   const assigneeByLicense = useMemo(
     () => new Map(assignments.map((a) => [a.license_id, a.assignee])),
     [assignments],
   );
   const employeeOptions = useMemo(
-    () => employees.map((employee) => ({ value: employee.id, label: employee.name })),
+    () =>
+      sortOptionsByLabel(
+        employees.map((employee) => ({ value: employee.id, label: employee.name })),
+      ),
     [employees],
+  );
+  const departmentOptions = useMemo(
+    () =>
+      sortOptionsByLabel(
+        departments.map((department) => ({ value: department.name, label: department.name })),
+      ),
+    [departments],
+  );
+  const createDepartmentOption = useCallback(
+    async (name: string): Promise<SelectFieldOption> => {
+      const existing = findByNameCaseInsensitive(departments, name, (d) => d.name);
+      const department = existing ?? (await createDepartment({ name }));
+      if (!existing) await queryClient.invalidateQueries({ queryKey: ["departments", "list"] });
+      return { value: department.name, label: department.name };
+    },
+    [departments, queryClient],
+  );
+  const baseFields = useMemo(
+    () =>
+      buildBaseFields(
+        categoryOptions,
+        createCategoryOption,
+        departmentOptions,
+        createDepartmentOption,
+      ),
+    [categoryOptions, createCategoryOption, departmentOptions, createDepartmentOption],
   );
 
   const columns: Column<License>[] = admin

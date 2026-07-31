@@ -1,23 +1,34 @@
-import { useMemo, type ReactNode } from "react";
-import { useListQuery } from "@/shared/hooks/use-list-query";
-import { Link } from "react-router-dom";
-import { ArrowUpRight, CalendarClock, KeyRound, ShieldAlert, Wrench } from "lucide-react";
-import { listAssets, type Asset } from "@/lib/data/assets.repo";
-import { listEmployees } from "@/lib/data/employees.repo";
+import { Button } from "@/components/ui/button";
+import { listAssets, updateAsset, type Asset } from "@/lib/data/assets.repo";
+import { employeesListQueryKey, listEmployees, type Employee } from "@/lib/data/employees.repo";
 import { effectiveLicenseStatus, listLicenses } from "@/lib/data/licenses.repo";
 import { listMaintenanceOrders } from "@/lib/data/maintenance.repo";
-import { listMovements } from "@/lib/data/movements.repo";
+import { listMovements, type Movement } from "@/lib/data/movements.repo";
 import { listPpeRequirements } from "@/lib/data/ppe-requirements.repo";
 import { effectivePpeStatus, listPpes } from "@/lib/data/ppes.repo";
-import { StatusBadge } from "@/shared/components/status-badge";
 import { UserChip } from "@/shared/components/avatar-group";
+import { StatusBadge } from "@/shared/components/status-badge";
+import { useListQuery } from "@/shared/hooks/use-list-query";
+import { findByNameCaseInsensitive } from "@/shared/utils/find-by-name";
 import {
-  daysUntil,
   EXPIRING_SOON_DAYS,
+  daysUntil,
   formatCurrency,
   formatDate,
   formatRelative,
 } from "@/shared/utils/format";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowUpRight,
+  CalendarClock,
+  KeyRound,
+  Loader2,
+  ShieldAlert,
+  Undo2,
+  Wrench,
+} from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 function PanelHeader({ title, to }: { title: string; to: string }) {
   return (
@@ -97,6 +108,154 @@ export function RecentActivity() {
             <span className="shrink-0 text-xs text-muted-foreground">
               {formatRelative(movement.occurred_at)}
             </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+interface PendingHandoff {
+  asset: Asset;
+  movement: Movement;
+  /** "clear" = devolveu, ninguém fica com o ativo. "assign" = peguei/repassei, alguém fica. */
+  action: "clear" | "assign";
+  targetEmployee?: Employee;
+}
+
+/**
+ * O rep não tem permissão de escrita em `assets` (lookup, admin/manager only) — o "Avisar
+ * movimentação" dele (`RepDashboardPage`) só grava a intenção em `movements`, sem mudar quem
+ * está com o ativo de verdade. Esta função acha, pra cada ativo, a movimentação mais recente de
+ * custódia (`checkout`/`checkin`/`transfer`) e compara o que ela implica contra o
+ * `assignee_id` atual — se não bate, é um aviso ainda não confirmado.
+ *
+ * Só conta movimentação com `occurred_at` **depois** de `asset.updated_at` — sem isso, todo
+ * histórico antigo (inclusive o de seed, com datas passadas aleatórias) entra na conta: como
+ * `movements` nunca sincronizou com `assets` (nem quando o admin loga pela tela cheia), é
+ * esperado que a última movimentação de um ativo qualquer não bata com o estado atual, mesmo que
+ * já esteja tudo certo — não é "pendente", é só histórico. Só o que aconteceu DEPOIS da última
+ * vez que o ativo foi tocado é sinal de verdade de algo ainda não reconciliado.
+ */
+function derivePendingHandoffs(
+  assets: Asset[],
+  movements: Movement[],
+  employees: Employee[],
+): PendingHandoff[] {
+  const latestByAsset = new Map<string, Movement>();
+  for (const movement of movements) {
+    if (
+      movement.type !== "checkout" &&
+      movement.type !== "checkin" &&
+      movement.type !== "transfer"
+    ) {
+      continue;
+    }
+    const current = latestByAsset.get(movement.asset_id);
+    if (!current || new Date(movement.occurred_at) > new Date(current.occurred_at)) {
+      latestByAsset.set(movement.asset_id, movement);
+    }
+  }
+
+  const pending: PendingHandoff[] = [];
+  for (const asset of assets) {
+    const movement = latestByAsset.get(asset.id);
+    if (!movement) continue;
+    if (new Date(movement.occurred_at) <= new Date(asset.updated_at)) continue;
+
+    if (movement.type === "checkin") {
+      if (asset.assignee_id) pending.push({ asset, movement, action: "clear" });
+      continue;
+    }
+
+    if (!movement.to_label) continue;
+    const targetEmployee = findByNameCaseInsensitive(employees, movement.to_label, (e) => e.name);
+    if (targetEmployee && asset.assignee_id !== targetEmployee.id) {
+      pending.push({ asset, movement, action: "assign", targetEmployee });
+    }
+  }
+  return pending;
+}
+
+/**
+ * Some sozinho da tela quando não há nada pendente — é um painel de "ação necessária", não faz
+ * sentido ocupar espaço permanente no dashboard do admin/manager mostrando "tudo em dia".
+ */
+export function PendingHandoffsPanel() {
+  const queryClient = useQueryClient();
+  const [applyingId, setApplyingId] = useState<string | null>(null);
+  const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: movements = [] } = useListQuery({
+    queryKey: ["movements", "list"],
+    queryFn: listMovements,
+  });
+  const { data: employees = [] } = useListQuery({
+    queryKey: employeesListQueryKey,
+    queryFn: listEmployees,
+  });
+
+  const pending = useMemo(
+    () => derivePendingHandoffs(assets, movements, employees),
+    [assets, movements, employees],
+  );
+
+  if (pending.length === 0) return null;
+
+  const apply = async (item: PendingHandoff) => {
+    setApplyingId(item.asset.id);
+    try {
+      const patch =
+        item.action === "clear"
+          ? { assignee_id: null, assignee: null, status: "available" as const }
+          : {
+              assignee_id: item.targetEmployee!.id,
+              assignee: item.targetEmployee!.name,
+              status: "in_use" as const,
+            };
+      await updateAsset(item.asset.id, patch);
+      await queryClient.invalidateQueries({ queryKey: ["assets", "list"] });
+    } finally {
+      setApplyingId(null);
+    }
+  };
+
+  return (
+    <div className="panel mb-4 overflow-hidden border-2 border-warning/40">
+      <div className="flex items-center gap-3 border-b border-border bg-warning/5 px-4 py-3">
+        <Undo2 className="size-5 shrink-0 text-warning" />
+        <div>
+          <h3 className="text-sm font-semibold">Movimentações aguardando confirmação</h3>
+          <p className="text-xs text-muted-foreground">
+            Um colaborador avisou que pegou, devolveu ou repassou algo — confirme pra atualizar o
+            responsável de verdade.
+          </p>
+        </div>
+      </div>
+      {/* max-h + overflow-y-auto: sem isso, uma lista grande empurra o resto do dashboard pra
+          baixo em vez de rolar dentro do próprio card. */}
+      <ul className="max-h-80 divide-y divide-border overflow-y-auto">
+        {pending.map((item) => (
+          <li
+            key={item.movement.id}
+            className="flex items-center justify-between gap-3 px-4 py-2.5"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{item.asset.name}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {item.movement.performed_by ?? "—"} ·{" "}
+                {ACTIVITY_VERBS[item.movement.type] ?? item.movement.type} · agora fica{" "}
+                {item.action === "clear" ? "sem responsável" : `com ${item.targetEmployee!.name}`}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={applyingId === item.asset.id}
+              onClick={() => apply(item)}
+            >
+              {applyingId === item.asset.id && <Loader2 className="size-3.5 animate-spin" />}
+              Aplicar
+            </Button>
           </li>
         ))}
       </ul>

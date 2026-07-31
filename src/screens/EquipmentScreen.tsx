@@ -7,14 +7,17 @@ import {
   EQUIPMENT_KINDS,
   type Asset,
 } from "@/lib/data/assets.repo";
+import type { AssetKind } from "@/lib/data/types.gen";
 import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
+import { useCategoryOptions } from "@/shared/hooks/use-category-options";
+import { useDepartmentOptions } from "@/shared/hooks/use-department-options";
+import { useEmployeeOptions } from "@/shared/hooks/use-employee-options";
 import {
   assetColumns,
   assetDetail,
   assetKindOptions,
   assetStatusOptions,
   buildAssetFields,
-  useEmployeeOptions,
 } from "./AssetsScreen";
 
 const equipmentKindOptions = assetKindOptions.filter((option) =>
@@ -27,6 +30,9 @@ export function EquipmentScreen() {
     (row) => row.assignee_id,
   );
   const employeeOptions = useEmployeeOptions();
+  const { options: categoryOptions, createOption: createCategoryOption } = useCategoryOptions();
+  const { options: departmentOptions, createOption: createDepartmentOption } =
+    useDepartmentOptions();
 
   return (
     <ResourcePage
@@ -38,7 +44,14 @@ export function EquipmentScreen() {
       columns={assetColumns}
       statusOptions={assetStatusOptions}
       createLabel="Novo equipamento"
-      createFields={buildAssetFields(equipmentKindOptions, employeeOptions)}
+      createFields={buildAssetFields(
+        equipmentKindOptions,
+        employeeOptions,
+        categoryOptions,
+        (name, values) => createCategoryOption(name, (values.kind as AssetKind) || undefined),
+        departmentOptions,
+        createDepartmentOption,
+      )}
       onCreate={(values) => createAsset(values as Partial<Asset>)}
       onUpdate={(id, values) => updateAsset(id, values as Partial<Asset>)}
       onDelete={(id) => removeAsset(id)}
