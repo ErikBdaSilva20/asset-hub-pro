@@ -1,28 +1,11 @@
 import { Hono } from "hono";
-import type { Context } from "hono";
 import { pool } from "./db";
-import { auth } from "./auth";
 import { TABLES, type TableDef } from "./schema";
+import { requireSession, isPrivileged } from "./session";
 
 // Modo genérico do gateway (Importantdoc.md §B5): list/create/update/remove por tabela,
 // sem get-by-id, sem filtro por query, sem joins. owner_id é sempre setado a partir da
 // sessão — nunca aceito do client.
-
-interface SessionUser {
-  id: string;
-  role: "admin" | "manager" | "rep";
-}
-
-async function requireSession(c: Context): Promise<SessionUser | null> {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session?.user) return null;
-  const role = (session.user as { role?: "admin" | "manager" | "rep" }).role ?? "rep";
-  return { id: session.user.id, role };
-}
-
-function isPrivileged(role: string) {
-  return role === "admin" || role === "manager";
-}
 
 // adminOnly vence qualquer outra regra — nem manager (que é "privileged" pras tabelas normais)
 // passa. Usado tanto pra leitura (GET) quanto escrita (POST/PATCH/DELETE) das tabelas marcadas.

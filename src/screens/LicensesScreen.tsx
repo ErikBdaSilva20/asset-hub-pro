@@ -19,7 +19,7 @@ import {
   removeLicenseAssignment,
   updateLicenseAssignment,
 } from "@/lib/data/license-assignments.repo";
-import { listEmployees, employeesListQueryKey } from "@/lib/data/employees.repo";
+import { listUsersLite, usersLiteListQueryKey } from "@/lib/data/users-lite.repo";
 import { createDepartment, listDepartments } from "@/lib/data/departments.repo";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { useAuth } from "@/lib/auth";
@@ -155,9 +155,9 @@ export function LicensesScreen() {
     queryFn: listLicenseAssignments,
     enabled: admin,
   });
-  const { data: employees = [] } = useListQuery({
-    queryKey: employeesListQueryKey,
-    queryFn: listEmployees,
+  const { data: users = [] } = useListQuery({
+    queryKey: usersLiteListQueryKey,
+    queryFn: listUsersLite,
     enabled: admin,
   });
   const { data: departments = [] } = useListQuery({
@@ -171,12 +171,12 @@ export function LicensesScreen() {
     () => new Map(assignments.map((a) => [a.license_id, a.assignee])),
     [assignments],
   );
-  const employeeOptions = useMemo(
+  const userOptions = useMemo(
     () =>
       sortOptionsByLabel(
-        employees.map((employee) => ({ value: employee.id, label: employee.name })),
+        users.map((user) => ({ value: user.id, label: user.name ?? user.email })),
       ),
-    [employees],
+    [users],
   );
   const departmentOptions = useMemo(
     () =>
@@ -225,7 +225,7 @@ export function LicensesScreen() {
           label: "Responsável",
           type: "select",
           placeholder: "Sem responsável",
-          options: employeeOptions,
+          options: userOptions,
           deriveFields: (option) => ({ assignee: option.label }),
         },
       ]

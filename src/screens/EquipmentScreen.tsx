@@ -11,7 +11,7 @@ import type { AssetKind } from "@/lib/data/types.gen";
 import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
 import { useCategoryOptions } from "@/shared/hooks/use-category-options";
 import { useDepartmentOptions } from "@/shared/hooks/use-department-options";
-import { useEmployeeOptions } from "@/shared/hooks/use-employee-options";
+import { useUserOptions } from "@/shared/hooks/use-user-options";
 import {
   assetColumns,
   assetDetail,
@@ -29,7 +29,7 @@ export function EquipmentScreen() {
     listEquipment,
     (row) => row.assignee_id,
   );
-  const employeeOptions = useEmployeeOptions();
+  const userOptions = useUserOptions();
   const { options: categoryOptions, createOption: createCategoryOption } = useCategoryOptions();
   const { options: departmentOptions, createOption: createDepartmentOption } =
     useDepartmentOptions();
@@ -46,7 +46,7 @@ export function EquipmentScreen() {
       createLabel="Novo equipamento"
       createFields={buildAssetFields(
         equipmentKindOptions,
-        employeeOptions,
+        userOptions,
         categoryOptions,
         (name, values) => createCategoryOption(name, (values.kind as AssetKind) || undefined),
         departmentOptions,

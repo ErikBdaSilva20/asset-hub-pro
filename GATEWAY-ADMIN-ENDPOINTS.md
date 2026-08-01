@@ -61,3 +61,54 @@ tem o passo a passo (`docker compose up -d postgres`, `npm run migrate`, `npm ru
 Não. Todo o resto do RBAC (tabelas lookup, telas somente-leitura pro rep, navegação e bloqueio de
 rota por papel — ver `docs/rbac-papeis.md`) já funciona hoje e não depende de nada disto. A tela
 `/users` também já está pronta e testada — só falta o `tenant-gateway` de produção ligar o plugin.
+
+## Adendo (2026-07-31) — merge employees→user: `cargo` + `/data/users_lite`
+
+O template eliminou o diretório de RH `employees` (ver `TODO-MERGE-COLABORADOR-USUARIO.md`): todo
+`rep` agora é só um `user` do Better-Auth, e o cargo dele (antes `employees.role`) virou um campo
+na própria sessão. Isso adiciona **duas coisas novas** ao contrato do gateway, além do que já
+estava documentado acima — testadas contra o `dev-gateway` local, **não confirmadas em produção**:
+
+### 1. Campo `cargo` no `user` (additionalField do Better-Auth)
+
+`dev-gateway/src/auth.ts` define `cargo` em `user.additionalFields` (mesmo molde de `role`,
+`input: false`). Isso adiciona **mais uma coluna** na tabela `"user"` (`cargo text`), do mesmo
+jeito que `role`/`banned`/`banReason`/`banExpires` já precisaram de migration do Better-Auth
+depois de mudar a config (ver §2 acima). **No `tenant-gateway` de produção, isso precisa da mesma
+migration do Better-Auth de novo** depois de replicar a config de `additionalFields`, senão
+qualquer leitura/escrita de `cargo` dá erro 500 (coluna não existe).
+
+### 2. Rotas novas `GET /data/users_lite` e `PATCH /data/users_lite/:id`
+
+Não são do plugin admin do Better-Auth — são rotas Hono **próprias** do template
+(`dev-gateway/src/users-lite-routes.ts`), porque a tabela `"user"` não é servida pelo modo
+genérico `/data/:table` (esse só cobre `schema.ts`/`supabase/migrations`). Cobrem duas lacunas
+que o plugin admin não resolve:
+
+- **`manager` listar reps** pra atribuir ativo/EPI/assinatura — `list-users` (§ acima) é
+  admin-only de verdade (confirmado: manager toma 403), então sem esta rota o manager não tinha
+  como escolher pra quem atribuir algo.
+- **admin/manager definir o cargo de um rep** sem depender de `POST /admin/update-user`
+  (`authClient.admin.updateUser`) do Better-Auth — que existe na lib mas tem o mesmo problema de
+  versão não confirmada citado acima (`better-auth` pinado em `^1.2.7`, endpoint testado localmente
+  contra `1.6.25`).
+
+Contrato exato (ver `dev-gateway/src/users-lite-routes.ts` pra copiar pro `tenant-gateway`):
+
+- `GET /data/users_lite` → admin+manager (mesma regra `isPrivileged()` das tabelas lookup),
+  `select id, name, email, role, cargo from "user" order by name`.
+- `PATCH /data/users_lite/:id` → admin+manager, body só aceita `{ cargo }` — nunca `role`/`email`/
+  senha, que continuam exclusivos do plugin admin.
+
+**No `tenant-gateway` de produção**: precisa montar essas duas rotas (ou equivalentes) além de
+habilitar o plugin admin. Sem elas: `/users` (edição de cargo) e qualquer combobox de
+"Responsável"/"Repassar para" que dependa de `listUsersLite()` (`src/lib/data/users-lite.repo.ts`)
+ficam quebrados — mesmo sintoma de 404 que `list-users`/`set-role` davam antes de o plugin ser
+habilitado.
+
+### 3. `admin.createUser` (usado só pelo seed de dados de exemplo)
+
+`src/shared/utils/seed-demo-data.ts` usa `auth.createUser` (`POST /api/auth/admin/create-user`,
+plugin admin) pra criar reps de teste sem trocar a sessão de quem clicou em "Popular com dados de
+exemplo" (diferente de `signUp`, que loga como a conta nova). Só importa pra quem for testar o
+botão de seed contra o `tenant-gateway` de produção — o resto do app não depende disto.

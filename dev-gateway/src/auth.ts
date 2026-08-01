@@ -34,6 +34,16 @@ export const auth = betterAuth({
         defaultValue: "rep",
         input: false,
       },
+      // Cargo do rep (ex.: "Técnica de Segurança"), casado por texto com
+      // ppe_requirements.function_name pra saber qual EPI cada função exige — era
+      // employees.role antes do merge employees→user (ver TODO-MERGE-COLABORADOR-USUARIO.md).
+      // input: false: quem define é admin/manager depois (tela /users), não o próprio usuário
+      // no cadastro — mesmo padrão de `role` acima.
+      cargo: {
+        type: "string",
+        required: false,
+        input: false,
+      },
     },
   },
   databaseHooks: {

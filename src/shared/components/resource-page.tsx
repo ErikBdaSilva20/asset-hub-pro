@@ -1,17 +1,3 @@
-import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { Download, Loader2, Pencil, Plus, Trash2, Upload } from "lucide-react";
-import { downloadCsv, parseCsv, runWithConcurrency, toCsv } from "@/shared/utils/csv";
-import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -21,19 +7,33 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PageContainer, PageHeader } from "@/shared/components/page-header";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   DataTable,
   TableToolbar,
   type Column,
   type FilterOption,
 } from "@/shared/components/data-table";
+import { PageContainer, PageHeader } from "@/shared/components/page-header";
 import { ResourceFormDialog, type FormFieldDef } from "@/shared/components/resource-form-dialog";
 import { useListState } from "@/shared/hooks/use-list-state";
 import { useResourceList } from "@/shared/hooks/use-resource-list";
-import { getErrorMessage } from "@/shared/utils/errors";
 import type { RangeFilterDef } from "@/shared/types";
+import { downloadCsv, parseCsv, runWithConcurrency, toCsv } from "@/shared/utils/csv";
+import { getErrorMessage } from "@/shared/utils/errors";
+import { useQueryClient } from "@tanstack/react-query";
+import { Download, Loader2, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { toast } from "sonner";
 
 interface ResourcePageProps<T extends { id: string }> {
   title: string;
@@ -63,6 +63,9 @@ interface ResourcePageProps<T extends { id: string }> {
   /** Presente + `detail` → botão "Excluir" aparece no drawer de detalhe, com confirmação. */
   onDelete?: (id: string) => Promise<unknown>;
   detail?: (row: T) => { title: string; subtitle: string; content: ReactNode };
+  /** Conteúdo extra logo abaixo do título/descrição no cabeçalho (ex.: um seletor de navegação
+   * entre telas irmãs). Repassado direto pro `meta` do `PageHeader`. */
+  meta?: ReactNode;
   /** Força o botão "Novo X" a ficar escondido/desabilitado independente de `createFields`/
    * `onCreate` — pra papéis que só consultam (ex.: `rep` em tabelas lookup, ver
    * `useRoleScopedResource`). Diferente de omitir `createFields`: aquilo é "esta tela não tem
@@ -95,6 +98,7 @@ export function ResourcePage<T extends { id: string }>({
   editInitialValues,
   onDelete,
   detail,
+  meta,
   readOnly = false,
   emptyTitle,
   emptyDescription,
@@ -204,6 +208,7 @@ export function ResourcePage<T extends { id: string }>({
         title={title}
         description={description}
         breadcrumbs={[{ label: "AssetHub", to: "/dashboard" }, { label: title }]}
+        meta={meta}
         actions={
           <>
             <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>

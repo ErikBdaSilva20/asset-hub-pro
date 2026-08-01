@@ -15,7 +15,6 @@ export type AssetKind =
 
 export type AssetStatus = "available" | "in_use" | "maintenance" | "reserved" | "retired" | "lost";
 export type AssetCondition = "new" | "good" | "fair" | "damaged";
-export type EmployeeStatus = "active" | "on_leave" | "offboarded";
 export type LicenseStatus = "active" | "expiring" | "expired" | "unassigned";
 export type LicenseBillingPeriod = "monthly" | "annual";
 export type MovementType = "checkout" | "checkin" | "transfer" | "maintenance" | "disposal";
@@ -53,38 +52,6 @@ export interface Database {
           updated_at: string;
         };
       };
-      suppliers: {
-        Row: {
-          id: string;
-          owner_id: string;
-          name: string;
-          document: string | null;
-          contact: string | null;
-          email: string | null;
-          category: string | null;
-          contract_until: string | null;
-          active_assets: number;
-          created_at: string;
-          updated_at: string;
-        };
-      };
-      employees: {
-        Row: {
-          id: string;
-          owner_id: string;
-          name: string;
-          email: string;
-          role: string;
-          department_id: string | null;
-          department: string | null;
-          status: EmployeeStatus;
-          hired_at: string;
-          assets_count: number;
-          location: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-      };
       assets: {
         Row: {
           id: string;
@@ -98,8 +65,6 @@ export interface Database {
           serial_number: string | null;
           model: string | null;
           manufacturer: string | null;
-          supplier_id: string | null;
-          supplier: string | null;
           department_id: string | null;
           department: string | null;
           assignee_id: string | null;

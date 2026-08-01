@@ -344,8 +344,6 @@ Manutenções
 
 Auditorias
 
-Fornecedores
-
 Departamentos
 
 Categorias

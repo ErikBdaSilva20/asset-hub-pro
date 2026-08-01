@@ -58,7 +58,7 @@ export interface FormFieldDef {
   /** Só pra type "select"/"combobox": ao escolher uma opção, mescla estes valores extra no
    * formulário — ex. um select de colaborador (envia o id) que também preenche um campo de nome
    * denormalizado. Reutilizável por qualquer campo futuro no mesmo formato (categoria,
-   * fornecedor, etc.). */
+   * departamento, etc.). */
   deriveFields?: (option: SelectFieldOption) => Record<string, unknown>;
   /** Só pra type "combobox": chamado quando o texto digitado não bate com nenhuma opção
    * existente, pra criar o registro na hora (ex. categoria/departamento novos) — recebe os
@@ -117,7 +117,7 @@ function isEmpty(value: unknown) {
  * departamento) e agora escolhe de uma tabela de verdade. Sem `onCreateOption`, vira só um
  * select buscável (ex. colaborador — ver `FormFieldDef.onCreateOption`).
  */
-function ComboboxField({
+export function ComboboxField({
   value,
   options,
   placeholder,

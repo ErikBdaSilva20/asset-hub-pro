@@ -116,6 +116,9 @@ export interface GatewaySessionUser {
   email: string;
   name?: string | null;
   role?: "admin" | "manager" | "rep";
+  /** Cargo do rep (ex.: "Técnica de Segurança") — additionalField do Better-Auth, ver
+   * dev-gateway/src/auth.ts. Vem populado na própria sessão, sem chamada extra. */
+  cargo?: string | null;
 }
 
 // ⚠️ listUsers/setRole abaixo NÃO ESTÃO CONFIRMADOS contra o tenant-gateway real — ver
@@ -153,4 +156,15 @@ export const auth = {
   listUsers: () => api<AdminListUsersResponse>("GET", "/api/auth/admin/list-users?limit=200"),
   setRole: (userId: string, role: "manager" | "rep") =>
     api<{ user: AdminUserSummary }>("POST", "/api/auth/admin/set-role", { userId, role }),
+  // Admin-only, mesma família de list-users/set-role (não confirmado contra produção — ver
+  // GATEWAY-ADMIN-ENDPOINTS.md). Cria um usuário sem afetar a sessão de quem chama (diferente de
+  // signUp, que faz login automático como a conta nova) — usado pelo seed de dados de exemplo pra
+  // criar reps de teste sem derrubar a sessão de quem clicou em "Popular com dados de exemplo".
+  createUser: (email: string, password: string, name: string, data?: Record<string, unknown>) =>
+    api<{ user: AdminUserSummary }>("POST", "/api/auth/admin/create-user", {
+      email,
+      password,
+      name,
+      data,
+    }),
 };

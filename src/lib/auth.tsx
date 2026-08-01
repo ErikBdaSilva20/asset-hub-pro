@@ -8,6 +8,9 @@ export interface AuthUser {
   id: string;
   email: string;
   name?: string | null;
+  /** Cargo (ex.: "Técnica de Segurança") — additionalField do Better-Auth, definido por
+   * admin/manager em /users. Vem pronto na sessão, sem fetch extra (ver client.ts). */
+  cargo?: string | null;
 }
 
 interface AuthContextValue {
@@ -20,7 +23,12 @@ interface AuthContextValue {
 }
 
 function toAuthUser(sessionUser: GatewaySessionUser): AuthUser {
-  return { id: sessionUser.id, email: sessionUser.email, name: sessionUser.name };
+  return {
+    id: sessionUser.id,
+    email: sessionUser.email,
+    name: sessionUser.name,
+    cargo: sessionUser.cargo,
+  };
 }
 
 const AuthContext = createContext<AuthContextValue>({

@@ -1,8 +1,7 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -11,19 +10,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ResourcePage } from "@/shared/components/resource-page";
-import { ResourceFormDialog } from "@/shared/components/resource-form-dialog";
+import { CargoCell } from "@/shared/components/cargo-cell";
 import type { Column } from "@/shared/components/data-table";
 import { auth, type AdminUserSummary } from "@/lib/data/client";
-import {
-  createEmployee,
-  listEmployees,
-  employeesListQueryKey,
-  type Employee,
-} from "@/lib/data/employees.repo";
-import { useListQuery } from "@/shared/hooks/use-list-query";
-import { useDepartmentOptions } from "@/shared/hooks/use-department-options";
-import { findEmployeeByEmail } from "@/shared/utils/find-employee-by-email";
-import { buildCreateFields } from "./EmployeesScreen";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/shared/utils/errors";
 import { toast } from "sonner";
@@ -95,61 +84,6 @@ function UserRoleCell({ user }: { user: AdminUserSummary }) {
   );
 }
 
-/**
- * "Usuário" (esta tela) é o login/credencial — controla quem entra e o papel de acesso
- * (admin/manager/rep). "Colaborador" (`/employees`) é o diretório de RH — controla quem pode
- * receber ativos/EPIs, com cargo e departamento. São tabelas diferentes, ligadas só pelo e-mail
- * batendo (case-insensitive, sem FK) — criar um não cria o outro. Esta célula deixa o vínculo
- * visível e, quando falta, oferece o atalho de cadastro em vez de forçar ir em Colaboradores e
- * digitar o e-mail de novo.
- */
-function LinkedEmployeeCell({ user }: { user: AdminUserSummary }) {
-  const queryClient = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const { data: employees = [] } = useListQuery({
-    queryKey: employeesListQueryKey,
-    queryFn: listEmployees,
-  });
-  const { options: departmentOptions, createOption: createDepartmentOption } =
-    useDepartmentOptions();
-  const employee = useMemo(
-    () => findEmployeeByEmail(employees, user.email),
-    [employees, user.email],
-  );
-  const fields = useMemo(
-    () => buildCreateFields(departmentOptions, createDepartmentOption),
-    [departmentOptions, createDepartmentOption],
-  );
-
-  if (employee) {
-    return <span className="text-sm">{employee.name}</span>;
-  }
-
-  const handleCreate = async (values: Record<string, unknown>) => {
-    await createEmployee(values as Partial<Employee>);
-    await queryClient.invalidateQueries({ queryKey: employeesListQueryKey });
-    toast.success("Colaborador cadastrado.");
-  };
-
-  return (
-    <>
-      <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
-        <UserPlus className="size-3.5" /> Cadastrar
-      </Button>
-      <ResourceFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        title="Cadastrar como colaborador"
-        description={`Cria o registro de RH pra ${user.email} — o vínculo com este login é pelo e-mail.`}
-        fields={fields}
-        initialValues={{ name: user.name ?? "", email: user.email }}
-        submitLabel="Cadastrar"
-        onSubmit={handleCreate}
-      />
-    </>
-  );
-}
-
 const columns: Column<AdminUserSummary>[] = [
   {
     key: "name",
@@ -158,14 +92,14 @@ const columns: Column<AdminUserSummary>[] = [
   },
   { key: "email", header: "E-mail", cell: (row) => row.email },
   { key: "role", header: "Papel de acesso", cell: (row) => <UserRoleCell user={row} /> },
-  { key: "employee", header: "Colaborador", cell: (row) => <LinkedEmployeeCell user={row} /> },
+  { key: "cargo", header: "Cargo", cell: (row) => <CargoCell user={row} /> },
 ];
 
 export function UsersScreen() {
   return (
     <ResourcePage
       title="Usuários"
-      description="Login e papel de acesso ao sistema — diferente de Colaboradores (diretório de RH); os dois se ligam pelo e-mail. Busque por nome e promova alguém a manager. Admin não é gerenciável por aqui."
+      description="Login, papel de acesso e cargo (usado pra conferência de EPI). Busque por nome, promova alguém a manager e defina o cargo. Admin não é gerenciável por aqui."
       resource={USERS_RESOURCE}
       list={() => auth.listUsers().then((response) => response.users)}
       columns={columns}

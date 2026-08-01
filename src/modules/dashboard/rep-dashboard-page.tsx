@@ -4,17 +4,17 @@ import { createMovement, type Movement } from "@/lib/data/movements.repo";
 import { listPpeRequirements } from "@/lib/data/ppe-requirements.repo";
 import { effectivePpeStatus, listPpes, type Ppe } from "@/lib/data/ppes.repo";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 import { PageContainer, PageHeader } from "@/shared/components/page-header";
 import { ResourceFormDialog, type FormFieldDef } from "@/shared/components/resource-form-dialog";
 import { StatCard } from "@/shared/components/stat-card";
 import { EmptyState } from "@/shared/components/states";
 import { StatusBadge } from "@/shared/components/status-badge";
-import { useCurrentEmployee } from "@/shared/hooks/use-current-employee";
-import { useEmployeeOptions } from "@/shared/hooks/use-employee-options";
+import { useUserOptions } from "@/shared/hooks/use-user-options";
 import { useListQuery } from "@/shared/hooks/use-list-query";
 import { formatDate, formatNumber } from "@/shared/utils/format";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Boxes, Building2, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Boxes, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 
 const REP_MOVEMENT_TYPES = [
@@ -30,13 +30,13 @@ interface ComplianceItem {
 }
 
 /**
- * Compara o que a função do rep exige (`ppe_requirements.function_name`, casado por texto com
- * `employees.role` — mesmo critério já usado em `AssignedEquipmentPanel`) contra os EPIs
+ * Compara o que o cargo do rep exige (`ppe_requirements.function_name`, casado por texto com
+ * `user.cargo` — mesmo critério já usado em `AssignedEquipmentPanel`) contra os EPIs
  * efetivamente entregues a ele (`ppes.assignee_id`). Só cobre EPI por enquanto — ativos em geral
  * não têm um conceito de "exigido pela função" no schema hoje (ver TODO-REP-DASHBOARD.md).
  */
 function usePpeCompliance(
-  functionName: string | undefined,
+  functionName: string | null | undefined,
   requirements: { function_name: string; ppe_name: string }[],
   myPpes: Ppe[],
 ): ComplianceItem[] {
@@ -66,9 +66,35 @@ function MissingBadge() {
   );
 }
 
-function SafetyPanel({ compliance, loading }: { compliance: ComplianceItem[]; loading: boolean }) {
+function SafetyPanel({
+  compliance,
+  loading,
+  hasCargo,
+}: {
+  compliance: ComplianceItem[];
+  loading: boolean;
+  /** false = admin/manager ainda não definiu o cargo deste rep (`/users`) — diferente de "cargo
+   * definido, mas sem EPI obrigatório pra ele". A mensagem de "tudo em dia" só faz sentido no
+   * segundo caso; no primeiro, ninguém checou nada ainda. */
+  hasCargo: boolean;
+}) {
   if (loading) {
     return <div className="panel h-24 animate-pulse" />;
+  }
+
+  if (!hasCargo) {
+    return (
+      <div className="panel flex items-center gap-3 border-2 border-warning/40 bg-warning/5 p-4">
+        <ShieldAlert className="size-5 shrink-0 text-warning" />
+        <div>
+          <p className="text-sm font-medium">Seu cargo ainda não foi definido</p>
+          <p className="text-xs text-muted-foreground">
+            Sem o cargo, não dá pra saber qual EPI é obrigatório pra você. Peça pro admin/manager
+            definir em Usuários.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   if (compliance.length === 0) {
@@ -150,15 +176,15 @@ function effectivePpeStatusLabel(item: ComplianceItem): "expiring" | "expired" {
 function MyEquipmentPanel({
   allAssets,
   myAssets,
-  employeeName,
+  userName,
 }: {
   allAssets: Asset[];
   myAssets: Asset[];
-  employeeName: string;
+  userName: string;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const queryClient = useQueryClient();
-  const employeeOptions = useEmployeeOptions();
+  const userOptions = useUserOptions();
 
   const fields: FormFieldDef[] = [
     {
@@ -179,11 +205,11 @@ function MyEquipmentPanel({
       options: REP_MOVEMENT_TYPES,
     },
     {
-      name: "to_employee_id",
+      name: "to_user_id",
       label: "Repassar para",
       type: "combobox",
       placeholder: 'Só se for "Repassei a outro colaborador"',
-      options: employeeOptions,
+      options: userOptions,
       deriveFields: (option) => ({ to_label: option.label }),
     },
     { name: "note", label: "Observação", type: "textarea" },
@@ -199,7 +225,7 @@ function MyEquipmentPanel({
     const type = values.type as string;
     const toLabel =
       type === "checkout"
-        ? employeeName
+        ? userName
         : type === "checkin"
           ? null
           : ((values.to_label as string) ?? null);
@@ -208,7 +234,7 @@ function MyEquipmentPanel({
       to_label: toLabel,
       asset_tag: asset?.tag ?? null,
       asset_name: asset?.name ?? null,
-      performed_by: employeeName,
+      performed_by: userName,
     } as Partial<Movement>);
     await queryClient.invalidateQueries({ queryKey: ["movements", "list"] });
   };
@@ -254,7 +280,7 @@ function MyEquipmentPanel({
 }
 
 export function RepDashboardPage() {
-  const { employee, isLoading: employeeLoading, hasLink } = useCurrentEmployee();
+  const { user, loading: userLoading } = useAuth();
   const { data: assets = [], isLoading: assetsLoading } = useListQuery({
     queryKey: ["assets", "list"],
     queryFn: listAssets,
@@ -269,16 +295,16 @@ export function RepDashboardPage() {
   });
 
   const myAssets = useMemo(
-    () => (employee ? assets.filter((asset) => asset.assignee_id === employee.id) : []),
-    [assets, employee],
+    () => (user ? assets.filter((asset) => asset.assignee_id === user.id) : []),
+    [assets, user],
   );
   const myPpes = useMemo(
-    () => (employee ? ppes.filter((ppe) => ppe.assignee_id === employee.id) : []),
-    [ppes, employee],
+    () => (user ? ppes.filter((ppe) => ppe.assignee_id === user.id) : []),
+    [ppes, user],
   );
-  const compliance = usePpeCompliance(employee?.role, requirements, myPpes);
+  const compliance = usePpeCompliance(user?.cargo, requirements, myPpes);
 
-  const loading = employeeLoading || assetsLoading || ppesLoading || requirementsLoading;
+  const loading = userLoading || assetsLoading || ppesLoading || requirementsLoading;
 
   return (
     <PageContainer>
@@ -288,37 +314,21 @@ export function RepDashboardPage() {
         breadcrumbs={[{ label: "AssetHub", to: "/dashboard" }, { label: "Dashboard" }]}
       />
 
-      {!loading && !hasLink ? (
-        <EmptyState
-          icon={AlertTriangle}
-          title="Sua conta não está vinculada a um colaborador"
-          description="Peça ao administrador para confirmar seu e-mail em Colaboradores. Esse vínculo é necessário para identificar quais equipamentos e EPIs estão associados a você."
-        />
-      ) : (
-        <div className="space-y-4">
-          <SafetyPanel compliance={compliance} loading={loading} />
+      <div className="space-y-4">
+        <SafetyPanel compliance={compliance} loading={loading} hasCargo={Boolean(user?.cargo)} />
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <StatCard
-              label="Ativos totais"
-              value={formatNumber(myAssets.length)}
-              hint="Sob sua responsabilidade"
-              icon={Boxes}
-            />
-            <StatCard
-              label="Meu setor"
-              value={employee?.department ?? "Não informado"}
-              icon={Building2}
-            />
-          </div>
-
-          <MyEquipmentPanel
-            allAssets={assets}
-            myAssets={myAssets}
-            employeeName={employee?.name ?? ""}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <StatCard
+            label="Ativos totais"
+            value={formatNumber(myAssets.length)}
+            hint="Sob sua responsabilidade"
+            icon={Boxes}
           />
+          <StatCard label="EPIs comigo" value={formatNumber(myPpes.length)} icon={ShieldCheck} />
         </div>
-      )}
+
+        <MyEquipmentPanel allAssets={assets} myAssets={myAssets} userName={user?.name ?? ""} />
+      </div>
     </PageContainer>
   );
 }

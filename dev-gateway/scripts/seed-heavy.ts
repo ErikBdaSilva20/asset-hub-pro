@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { randomUUID } from "node:crypto";
 import { pool } from "../src/db";
 
 // =====================================================
@@ -8,8 +9,9 @@ import { pool } from "../src/db";
 // coerentes pra onboarding) não serve pra validar.
 //
 // É aditivo — nunca apaga nada que já existe. Toda linha gerada aqui é identificável pelo prefixo
-// "BULK-" (tags/códigos) ou pelo domínio de e-mail "@bulk-seed.local" (colaboradores), então dá
-// pra limpar depois com um DELETE filtrando por esses padrões, se quiser.
+// "BULK-" (tags/códigos) ou pelo domínio de e-mail "@bulk-seed.local" (reps de exemplo, direto na
+// tabela "user" do Better-Auth), então dá pra limpar depois com um DELETE filtrando por esses
+// padrões, se quiser.
 //
 // Uso: npm run seed:heavy (dentro de dev-gateway/)
 // =====================================================
@@ -17,8 +19,7 @@ import { pool } from "../src/db";
 const VOLUME = {
   departments: 20,
   categories: 16,
-  suppliers: 35,
-  employees: 350,
+  users: 350,
   assets: 1000,
   licenses: 70,
   movements: 800,
@@ -64,6 +65,7 @@ async function bulkInsert(
   columns: string[],
   rows: unknown[][],
   returning?: string,
+  onConflict?: string,
 ): Promise<Record<string, unknown>[]> {
   if (rows.length === 0) return [];
   const CHUNK = 500;
@@ -79,8 +81,8 @@ async function bulkInsert(
       return `(${placeholders.join(", ")})`;
     });
     const sql = `insert into "${table}" (${colList}) values ${tuples.join(", ")}${
-      returning ? ` returning ${returning}` : ""
-    }`;
+      onConflict ? ` ${onConflict}` : ""
+    }${returning ? ` returning ${returning}` : ""}`;
     const res = await pool.query(sql, values);
     if (returning) out.push(...(res.rows as Record<string, unknown>[]));
   }
@@ -198,7 +200,9 @@ const DEPARTMENT_NAMES = [
   "Expansão",
 ] as const;
 
-const SUPPLIER_BASE = [
+// Só pra `maintenance_orders.provider` (texto livre, ver seed-heavy.ts) — não existe mais tabela
+// suppliers, então isto não vira FK em lugar nenhum, é só nome de assistência técnica fictícia.
+const PROVIDER_BASE = [
   "Nortec",
   "Vertex",
   "Prisma",
@@ -220,15 +224,14 @@ const SUPPLIER_BASE = [
   "Titan",
   "Nexus",
 ] as const;
-const SUPPLIER_SUFFIX = [
+const PROVIDER_SUFFIX = [
   "Tecnologia",
-  "Distribuidora",
+  "Assistência Técnica",
   "Soluções",
   "Sistemas",
   "Corp",
-  "Group",
   "Serviços",
-  "Consultoria",
+  "Manutenções",
 ] as const;
 
 const LICENSE_VENDORS = [
@@ -390,33 +393,6 @@ async function main() {
   );
   console.log(`categories: +${categoryRows.length}`);
 
-  // --- suppliers ---
-  const supplierRows = Array.from({ length: VOLUME.suppliers }, () => [
-    ownerId,
-    `${pick(SUPPLIER_BASE)} ${pick(SUPPLIER_SUFFIX)}`,
-    `${randInt(10, 99)}.${randInt(100, 999)}.${randInt(100, 999)}/0001-${randInt(10, 99)}`,
-    personName(),
-    `contato${randInt(1, 9999)}@fornecedor.com.br`,
-    pick(["Hardware", "Software", "EPI", "Logística", "Serviços"]),
-    maybe(daysFromNow(randInt(-400, 500)), 0.2),
-    randInt(0, 300),
-  ]);
-  await bulkInsert(
-    "suppliers",
-    [
-      "owner_id",
-      "name",
-      "document",
-      "contact",
-      "email",
-      "category",
-      "contract_until",
-      "active_assets",
-    ],
-    supplierRows,
-  );
-  console.log(`suppliers: +${supplierRows.length}`);
-
   // Pools vivos (existentes + recém-criados) pra ligar FK com dado real.
   const departments = (
     await pool.query<{ id: string; name: string }>(`select id, name from departments`)
@@ -427,45 +403,38 @@ async function main() {
     )
   ).rows;
 
-  // --- employees ---
-  const employeeRows = Array.from({ length: VOLUME.employees }, (_, i) => {
-    const dep = pick(departments);
-    return [
-      ownerId,
-      personName(),
-      `colaborador${i + 1}.bulk@bulk-seed.local`,
-      pick(JOB_ROLES),
-      dep.id,
-      dep.name,
-      pickWeighted({ active: 85, on_leave: 8, offboarded: 7 }),
-      daysFromNow(-randInt(30, 2500)),
-      0,
-      pick(LOCATIONS),
-    ];
-  });
+  // --- user (reps de exemplo) ---
+  // Direto na tabela do Better-Auth ("user"), sem passar pela API — 350 chamadas de signup HTTP
+  // (hash de senha cada uma) seriam lentas demais pro que este seed serve: popular volume pra
+  // testar paginação/filtros/gráficos, não testar login de verdade. Por isso sem `"account"`
+  // (nenhuma senha, ninguém loga como esses reps) — só precisam existir pra `assignee_id`
+  // apontar pra um `"user".id` real (FK). role = 'rep' direto, sem passar pelo hook de "1º
+  // usuário vira admin" de dev-gateway/src/auth.ts (que só roda via signUp/admin.createUser).
+  const userRows = Array.from({ length: VOLUME.users }, (_, i) => [
+    randomUUID(),
+    personName(),
+    `colaborador${i + 1}.bulk@bulk-seed.local`,
+    true,
+    "rep",
+    pick(JOB_ROLES),
+  ]);
+  // "user".email tem unique constraint (Better-Auth) — employees não tinha isso, então rodar
+  // este seed 2x quebraria no meio sem o ON CONFLICT (o resto do script continuaria intocado,
+  // mas o processo inteiro abortaria aqui). DO NOTHING mantém o comportamento aditivo original:
+  // rodar de novo não duplica os mesmos 350 "colaboradorN.bulk@..." já existentes.
   await bulkInsert(
-    "employees",
-    [
-      "owner_id",
-      "name",
-      "email",
-      "role",
-      "department_id",
-      "department",
-      "status",
-      "hired_at",
-      "assets_count",
-      "location",
-    ],
-    employeeRows,
+    "user",
+    ["id", "name", "email", "emailVerified", "role", "cargo"],
+    userRows,
+    undefined,
+    "on conflict (email) do nothing",
   );
-  console.log(`employees: +${employeeRows.length}`);
+  console.log(`user: +${userRows.length} (linhas com e-mail já existente foram ignoradas)`);
 
-  const employees = (
-    await pool.query<{ id: string; name: string }>(`select id, name from employees`)
-  ).rows;
-  const suppliers = (
-    await pool.query<{ id: string; name: string }>(`select id, name from suppliers`)
+  const users = (
+    await pool.query<{ id: string; name: string }>(
+      `select id, name from "user" where email like '%@bulk-seed.local'`,
+    )
   ).rows;
 
   // --- assets ---
@@ -482,8 +451,7 @@ async function main() {
     const kind = pick(ASSET_KINDS);
     const cat = pick(categories.filter((c) => c.kind === kind)) ?? pick(categories);
     const assigned = Math.random() < 0.75;
-    const employee = assigned ? pick(employees) : null;
-    const supplier = Math.random() < 0.85 ? pick(suppliers) : null;
+    const user = assigned ? pick(users) : null;
     const dep = Math.random() < 0.85 ? pick(departments) : null;
     // 20% sem garantia, 15% vencendo nos próximos 120 dias (popula "Garantias próximas" do
     // dashboard de propósito), resto espalhado no passado/futuro.
@@ -506,12 +474,10 @@ async function main() {
       `SN-${randInt(100000, 999999)}`,
       pick(ASSET_NAMES_BY_KIND[kind]),
       pick(MANUFACTURERS),
-      supplier?.id ?? null,
-      supplier?.name ?? null,
       dep?.id ?? null,
       dep?.name ?? null,
-      employee?.id ?? null,
-      employee?.name ?? null,
+      user?.id ?? null,
+      user?.name ?? null,
       pick(LOCATIONS),
       daysFromNow(-randInt(10, 1800)),
       randInt(400, 25000),
@@ -531,8 +497,6 @@ async function main() {
       "serial_number",
       "model",
       "manufacturer",
-      "supplier_id",
-      "supplier",
       "department_id",
       "department",
       "assignee_id",
@@ -594,8 +558,8 @@ async function main() {
   const assignmentRows = insertedLicenses
     .filter(() => Math.random() < 0.55)
     .map((license) => {
-      const employee = pick(employees);
-      return [license.id as string, employee.id, employee.name];
+      const user = pick(users);
+      return [license.id as string, user.id, user.name];
     });
   await bulkInsert(
     "license_assignments",
@@ -614,7 +578,7 @@ async function main() {
       maintenance: 12,
       disposal: 8,
     });
-    const performer = pick(employees);
+    const performer = pick(users);
     return [
       ownerId,
       asset.id,
@@ -674,7 +638,7 @@ async function main() {
       asset.name,
       pickWeighted({ preventive: 55, corrective: 45 }),
       status,
-      pick(suppliers).name,
+      `${pick(PROVIDER_BASE)} ${pick(PROVIDER_SUFFIX)}`,
       openedAt,
       dueAt,
       randInt(80, 5000),
@@ -716,13 +680,13 @@ async function main() {
         : status === "expired"
           ? daysFromNow(-randInt(1, 200))
           : daysFromNow(randInt(31, 700));
-    const employee = Math.random() < 0.85 ? pick(employees) : null;
+    const user = Math.random() < 0.85 ? pick(users) : null;
     const ppeCat = categories.find((c) => c.kind === "ppe") ?? pick(categories);
     return [
       pick(PPE_NAMES),
       `CA-${randInt(10000, 99999)}`,
-      employee?.id ?? null,
-      employee?.name ?? null,
+      user?.id ?? null,
+      user?.name ?? null,
       pick(departments).name,
       daysFromNow(-randInt(1, 500)),
       expiresAt,

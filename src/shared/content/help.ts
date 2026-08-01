@@ -41,7 +41,7 @@ export const helpTopics: HelpTopic[] = [
     description:
       "Registro central de todo item patrimonial: notebooks, desktops, celulares, móveis, ferramentas e veículos.",
     howTo: [
-      "Cadastre com etiqueta, número de série, categoria, fornecedor e valor de compra.",
+      "Cadastre com etiqueta, número de série, categoria e valor de compra.",
       "Abra o drawer de detalhes para ver ficha técnica e histórico.",
       "Use filtros de status para separar disponíveis, em uso e em manutenção.",
     ],
@@ -58,31 +58,6 @@ export const helpTopics: HelpTopic[] = [
       {
         topicId: "maintenance",
         note: "Ordens de serviço abertas ficam vinculadas a este ativo",
-      },
-    ],
-  },
-  {
-    id: "employees",
-    title: "Colaboradores",
-    description: "Pessoas que podem receber ativos, agrupadas por departamento e centro de custo.",
-    howTo: [
-      "Consulte quantos ativos cada colaborador possui antes de uma nova entrega.",
-      "Ao desligar alguém, valide devoluções pendentes na aba de movimentações.",
-    ],
-    bestPractices: [
-      "Mantenha o departamento atualizado — ele define o rateio de custo.",
-      "Bloqueie novas entregas para colaboradores desligados.",
-    ],
-    relatedTo: [
-      {
-        topicId: "departments",
-        note: "O campo Departamento usa o texto cadastrado em Departamentos",
-      },
-      { topicId: "assets", note: "O nome aparece como Responsável quando um ativo é entregue" },
-      { topicId: "ppe", note: "O nome aparece como Colaborador ao registrar entrega de EPI" },
-      {
-        topicId: "licenses",
-        note: "O nome aparece como Responsável (só admin vê) quando uma assinatura é atribuída",
       },
     ],
   },
@@ -144,10 +119,6 @@ export const helpTopics: HelpTopic[] = [
         note: "O campo Departamento usa o texto cadastrado em Departamentos",
       },
       {
-        topicId: "employees",
-        note: "O campo Responsável (admin-only) puxa a lista de Colaboradores",
-      },
-      {
         topicId: "dashboard",
         note: 'Custo anualizado entra em "Gastos por categoria" (admin-only); renovações próximas aparecem em "Itens vencendo" (todo mundo vê)',
       },
@@ -166,7 +137,6 @@ export const helpTopics: HelpTopic[] = [
       "Guarde a assinatura da ficha de EPI para fiscalização.",
     ],
     relatedTo: [
-      { topicId: "employees", note: "O campo Colaborador usa o nome cadastrado em Colaboradores" },
       { topicId: "dashboard", note: 'EPIs vencendo aparecem no painel "Itens vencendo"' },
     ],
   },
@@ -184,7 +154,6 @@ export const helpTopics: HelpTopic[] = [
     ],
     relatedTo: [
       { topicId: "assets", note: "Toda ordem exige um ativo já cadastrado" },
-      { topicId: "suppliers", note: "O campo Fornecedor usa o texto cadastrado em Fornecedores" },
       { topicId: "dashboard", note: 'Ordens em aberto contam pro card "Manutenções abertas"' },
     ],
   },
@@ -203,36 +172,18 @@ export const helpTopics: HelpTopic[] = [
     relatedTo: [],
   },
   {
-    id: "suppliers",
-    title: "Fornecedores",
-    description: "Parceiros de compra, contrato e manutenção vinculados ao patrimônio.",
-    howTo: [
-      "Cadastre CNPJ, contato e categoria antes de vincular um fornecedor a ativos ou manutenções.",
-      'O nome do fornecedor aqui é o mesmo texto usado no campo "Fornecedor" de Ativos e no campo "Fornecedor" de Manutenções.',
-    ],
-    bestPractices: [
-      "Mantenha o contrato até atualizado — é ele que aparece nos alertas do Dashboard.",
-      "Revise fornecedores sem ativos ativos a cada semestre.",
-    ],
-    relatedTo: [
-      { topicId: "assets", note: "Aparece no campo Fornecedor ao cadastrar um ativo" },
-      { topicId: "maintenance", note: "Aparece no campo Fornecedor ao abrir uma ordem de serviço" },
-    ],
-  },
-  {
     id: "departments",
     title: "Departamentos",
     description: "Estrutura organizacional, centros de custo e distribuição de ativos.",
     howTo: [
-      "Cadastre o departamento antes de vincular colaboradores ou ativos a ele.",
-      'O nome aqui é o mesmo texto que aparece no campo "Departamento" de Ativos, Colaboradores e EPIs.',
+      "Cadastre o departamento antes de vincular ativos a ele.",
+      'O nome aqui é o mesmo texto que aparece no campo "Departamento" de Ativos e EPIs.',
     ],
     bestPractices: [
       'Use o mesmo nome de departamento em todas as telas — nomes diferentes (ex: "TI" vs "Engenharia") viram grupos separados nos relatórios.',
     ],
     relatedTo: [
       { topicId: "assets", note: "Aparece no campo Departamento ao cadastrar um ativo" },
-      { topicId: "employees", note: "Aparece no campo Departamento ao cadastrar um colaborador" },
       { topicId: "licenses", note: "Aparece no campo Departamento (dono da licença)" },
     ],
   },
@@ -258,7 +209,7 @@ export const onboardingSteps = [
   {
     title: "Como cadastrar",
     description:
-      "Em Ativos, clique em Novo ativo e informe categoria, etiqueta, número de série, fornecedor, valor e garantia. O ativo nasce com status Disponível.",
+      "Em Ativos, clique em Novo ativo e informe categoria, etiqueta, número de série, valor e garantia. O ativo nasce com status Disponível.",
   },
   {
     title: "Como entregar",

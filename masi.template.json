@@ -1,7 +1,7 @@
 {
   "id": "asset-hub",
   "name": "AssetHub — Gestão corporativa de ativos",
-  "description": "Controle de ciclo de vida de ativos, equipamentos, licenças, EPIs, manutenções, movimentações e auditorias, com departamentos, categorias e fornecedores.",
+  "description": "Controle de ciclo de vida de ativos, equipamentos, licenças, EPIs, manutenções, movimentações e auditorias, com departamentos e categorias.",
   "version": "1.0.0",
   "engine": "vite-react-gateway",
   "schemaVersion": 1,
@@ -12,7 +12,9 @@
     "0004_ppe_requirements.sql",
     "0005_licenses_simplify.sql",
     "0006_license_assignments.sql",
-    "0007_license_category.sql"
+    "0007_license_category.sql",
+    "0008_drop_suppliers.sql",
+    "0009_employees_to_user.sql"
   ],
   "auth": { "provider": "better-auth", "roles": ["admin", "manager", "rep"] },
   "screens": [
@@ -28,12 +30,6 @@
       "route": "/equipment",
       "title": "Equipamentos",
       "file": "src/screens/EquipmentScreen"
-    },
-    {
-      "id": "employees",
-      "route": "/employees",
-      "title": "Colaboradores",
-      "file": "src/screens/EmployeesScreen"
     },
     {
       "id": "movements",
@@ -67,12 +63,6 @@
       "file": "src/screens/AuditsScreen"
     },
     {
-      "id": "suppliers",
-      "route": "/suppliers",
-      "title": "Fornecedores",
-      "file": "src/screens/SuppliersScreen"
-    },
-    {
       "id": "departments",
       "route": "/departments",
       "title": "Departamentos",
@@ -89,6 +79,12 @@
       "route": "/users",
       "title": "Usuários",
       "file": "src/screens/UsersScreen"
+    },
+    {
+      "id": "cargo",
+      "route": "/cargo",
+      "title": "Cargos",
+      "file": "src/screens/CargoScreen"
     },
     { "id": "login", "route": "/", "title": "Entrar", "file": "src/screens/LoginScreen" },
     {

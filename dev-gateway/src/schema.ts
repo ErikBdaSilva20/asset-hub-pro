@@ -24,38 +24,6 @@ export const TABLES: Record<string, TableDef> = {
     ownerScoped: true,
     columns: ["name", "kind", "depreciation_months", "assets_count", "requires_maintenance"],
   },
-  suppliers: {
-    ownerScoped: true,
-    columns: [
-      "name",
-      "document",
-      "contact",
-      "email",
-      "category",
-      "contract_until",
-      "active_assets",
-    ],
-  },
-  employees: {
-    // Virou tabela lookup (era ownerScoped: true, herdado do padrão genérico da fundação —
-    // "cada um só vê o que criou", que nunca fez sentido pra um diretório de colaboradores
-    // mantido por admin/manager). Sem isso, `owner_id` ficava sempre = quem cadastrou o
-    // colaborador (o admin), então nenhum `rep` conseguia se auto-identificar via
-    // `useCurrentEmployee` (GET filtrado por `owner_id = próprio id` nunca batia com a própria
-    // linha). Efeito colateral correto: rep vira read-only aqui, igual assets/licenses/ppes.
-    ownerScoped: false,
-    columns: [
-      "name",
-      "email",
-      "role",
-      "department_id",
-      "department",
-      "status",
-      "hired_at",
-      "assets_count",
-      "location",
-    ],
-  },
   assets: {
     // Virou tabela lookup em 0002_rbac_visibility.sql (sem owner_id): leitura liberada a todo
     // logado, escrita só admin/manager (ver isPrivileged() em data-routes.ts).
@@ -71,8 +39,6 @@ export const TABLES: Record<string, TableDef> = {
       "serial_number",
       "model",
       "manufacturer",
-      "supplier_id",
-      "supplier",
       "department_id",
       "department",
       "assignee_id",

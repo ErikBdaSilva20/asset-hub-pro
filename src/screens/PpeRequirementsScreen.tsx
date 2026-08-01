@@ -25,7 +25,7 @@ const createFields: FormFieldDef[] = [
     name: "function_name",
     label: "Função",
     required: true,
-    placeholder: "Mesmo texto usado em Colaboradores > Cargo",
+    placeholder: "Mesmo texto usado em Usuários > Cargo",
   },
   { name: "ppe_name", label: "EPI exigido", required: true },
 ];
@@ -33,8 +33,8 @@ const createFields: FormFieldDef[] = [
 /**
  * Tabela lookup (sem owner_id, ver 0004_ppe_requirements.sql) — leitura liberada a todo mundo
  * (rep pode conferir o que a própria função exige), escrita só admin/manager. `function_name`
- * casa por texto com `employees.role`; usado pelo painel "Quem está com o quê" do dashboard
- * (dashboard-panels.tsx) pra mostrar o EPI exigido ao lado dos ativos de cada colaborador.
+ * casa por texto com `user.cargo`; usado pelo painel "Quem está com o quê" do dashboard
+ * (dashboard-panels.tsx) pra mostrar o EPI exigido ao lado dos ativos de cada usuário.
  */
 export function PpeRequirementsScreen() {
   const { role } = useAuth();

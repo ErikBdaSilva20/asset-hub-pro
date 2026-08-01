@@ -14,7 +14,7 @@ import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
 import { useCategoryOptions } from "@/shared/hooks/use-category-options";
 import { useDepartmentOptions } from "@/shared/hooks/use-department-options";
-import { useEmployeeOptions } from "@/shared/hooks/use-employee-options";
+import { useUserOptions } from "@/shared/hooks/use-user-options";
 
 const mono = (value: string | null) => <span className="font-mono text-xs">{value ?? "—"}</span>;
 const muted = (value: string | null) => (
@@ -71,7 +71,7 @@ const assetConditionOptions = [
 
 export function buildAssetFields(
   kindOptions = assetKindOptions,
-  employeeOptions: SelectFieldOption[] = [],
+  userOptions: SelectFieldOption[] = [],
   categoryOptions: SelectFieldOption[] = [],
   onCreateCategory?: (name: string, values: Record<string, unknown>) => Promise<SelectFieldOption>,
   departmentOptions: SelectFieldOption[] = [],
@@ -107,7 +107,6 @@ export function buildAssetFields(
     { name: "manufacturer", label: "Fabricante" },
     { name: "model", label: "Modelo" },
     { name: "serial_number", label: "Número de série" },
-    { name: "supplier", label: "Fornecedor" },
     {
       name: "department_id",
       label: "Departamento",
@@ -122,7 +121,7 @@ export function buildAssetFields(
       label: "Responsável",
       type: "combobox",
       placeholder: "Sem responsável",
-      options: employeeOptions,
+      options: userOptions,
       deriveFields: (option) => ({ assignee: option.label }),
     },
     { name: "location", label: "Local" },
@@ -146,7 +145,6 @@ export function assetDetail(row: Asset) {
           { label: "Responsável", value: row.assignee ?? "—" },
           { label: "Departamento", value: row.department ?? "—" },
           { label: "Local", value: row.location ?? "—" },
-          { label: "Fornecedor", value: row.supplier ?? "—" },
           { label: "Compra", value: formatDate(row.purchase_date) },
           { label: "Valor", value: formatCurrency(row.purchase_value) },
           { label: "Garantia até", value: formatDate(row.warranty_until) },
@@ -162,7 +160,7 @@ export function AssetsScreen() {
     listAssets,
     (row) => row.assignee_id,
   );
-  const employeeOptions = useEmployeeOptions();
+  const userOptions = useUserOptions();
   // Sem `kind` fixo: Ativos cobre todo tipo, então lista todas as categorias e usa o "Tipo" já
   // escolhido no próprio formulário (values.kind) como kind da categoria nova, se precisar criar.
   const { options: categoryOptions, createOption: createCategoryOption } = useCategoryOptions();
@@ -182,7 +180,7 @@ export function AssetsScreen() {
       createLabel="Novo ativo"
       createFields={buildAssetFields(
         assetKindOptions,
-        employeeOptions,
+        userOptions,
         categoryOptions,
         (name, values) => createCategoryOption(name, (values.kind as AssetKind) || undefined),
         departmentOptions,

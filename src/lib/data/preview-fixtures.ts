@@ -5,11 +5,10 @@
 
 import type { Database } from "./types.gen";
 import type { AdminUserSummary } from "./client";
+import type { UserLite } from "./users-lite.repo";
 
 type Department = Database["public"]["Tables"]["departments"]["Row"];
 type Category = Database["public"]["Tables"]["categories"]["Row"];
-type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];
-type Employee = Database["public"]["Tables"]["employees"]["Row"];
 type Asset = Database["public"]["Tables"]["assets"]["Row"];
 type License = Database["public"]["Tables"]["licenses"]["Row"];
 type LicenseAssignment = Database["public"]["Tables"]["license_assignments"]["Row"];
@@ -61,40 +60,6 @@ const previewCategories: Category[] = [
   },
 ];
 
-const previewSuppliers: Supplier[] = [
-  {
-    id: "preview-sup-1",
-    owner_id: PREVIEW_OWNER_ID,
-    name: "Nortec Distribuidora",
-    document: "12.345.678/0001-90",
-    contact: "Lucas Menezes",
-    email: "lucas@nortec.com.br",
-    category: "Hardware",
-    contract_until: now,
-    active_assets: 312,
-    created_at: now,
-    updated_at: now,
-  },
-];
-
-const previewEmployees: Employee[] = [
-  {
-    id: "preview-emp-1",
-    owner_id: PREVIEW_OWNER_ID,
-    name: "Marina Duarte",
-    email: "marina.duarte@assethub.co",
-    role: "Head de Engenharia",
-    department_id: "preview-dep-1",
-    department: "Engenharia",
-    status: "active",
-    hired_at: now,
-    assets_count: 4,
-    location: "São Paulo - HQ",
-    created_at: now,
-    updated_at: now,
-  },
-];
-
 const previewAssets: Asset[] = [
   {
     id: "preview-asset-1",
@@ -108,8 +73,6 @@ const previewAssets: Asset[] = [
     serial_number: "C02PREVIEW01",
     model: "MacBook Pro 14 M3",
     manufacturer: "Apple",
-    supplier_id: "preview-sup-1",
-    supplier: "Nortec Distribuidora",
     department_id: "preview-dep-1",
     department: "Engenharia",
     assignee_id: "preview-emp-1",
@@ -251,11 +214,31 @@ const previewAdminUsers: AdminUserSummary[] = [
   { id: "preview-user-3", name: "Paula Ferraz", email: "paula.ferraz@assethub.co", role: "rep" },
 ];
 
+// Mock de `/data/users_lite` (dev-gateway/src/users-lite-routes.ts) — mesmas pessoas de
+// `previewAdminUsers`, mais `cargo`. Marina usa o mesmo `function_name` de
+// `previewPpeRequirements`, pra o painel de conformidade de EPI ter algo pra casar.
+const previewUsersLite: UserLite[] = [
+  { id: PREVIEW_OWNER_ID, name: "Ana Ribeiro", email: "ana.ribeiro@assethub.co", role: "admin", cargo: null },
+  {
+    id: "preview-emp-1",
+    name: "Marina Duarte",
+    email: "marina.duarte@assethub.co",
+    role: "manager",
+    cargo: "Head de Engenharia",
+  },
+  {
+    id: "preview-user-3",
+    name: "Paula Ferraz",
+    email: "paula.ferraz@assethub.co",
+    role: "rep",
+    cargo: null,
+  },
+];
+
 const fixturesByTable: Record<string, unknown[]> = {
   departments: previewDepartments,
   categories: previewCategories,
-  suppliers: previewSuppliers,
-  employees: previewEmployees,
+  users_lite: previewUsersLite,
   assets: previewAssets,
   licenses: previewLicenses,
   license_assignments: previewLicenseAssignments,
@@ -276,6 +259,19 @@ export function previewRequest<T>(method: string, path: string, body?: unknown):
     const user = previewAdminUsers.find((candidate) => candidate.id === userId);
     if (user && role) user.role = role;
     return Promise.resolve({ user: user ?? null } as T);
+  }
+
+  if (path === "/api/auth/admin/create-user" && method === "POST") {
+    const { email, name, data } = (body ?? {}) as {
+      email?: string;
+      name?: string;
+      data?: { cargo?: string };
+    };
+    const id = `preview-user-${previewAdminUsers.length + 1}`;
+    const user: AdminUserSummary = { id, name: name ?? null, email: email ?? "", role: "rep" };
+    previewAdminUsers.push(user);
+    previewUsersLite.push({ ...user, cargo: data?.cargo ?? null });
+    return Promise.resolve({ user } as T);
   }
 
   const match = path.match(/^\/data\/([a-z_]+)(?:\/(.+))?$/);

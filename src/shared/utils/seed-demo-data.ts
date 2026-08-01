@@ -1,7 +1,6 @@
 import { createDepartment } from "@/lib/data/departments.repo";
 import { createCategory } from "@/lib/data/categories.repo";
-import { createSupplier } from "@/lib/data/suppliers.repo";
-import { createEmployee } from "@/lib/data/employees.repo";
+import { auth, ApiError, type AdminUserSummary } from "@/lib/data/client";
 import { createAsset, type Asset } from "@/lib/data/assets.repo";
 import { createLicense } from "@/lib/data/licenses.repo";
 import { createLicenseAssignment } from "@/lib/data/license-assignments.repo";
@@ -23,8 +22,7 @@ import { createAudit } from "@/lib/data/audits.repo";
 export interface SeedSummary {
   departments: number;
   categories: number;
-  suppliers: number;
-  employees: number;
+  users: number;
   assets: number;
   licenses: number;
   licenseAssignments: number;
@@ -97,80 +95,39 @@ export async function seedDemoData(): Promise<SeedSummary> {
     }),
   ]);
 
-  const suppliers = await Promise.all([
-    createSupplier({
-      name: "Nortec Distribuidora",
-      document: "12.345.678/0001-90",
-      contact: "Lucas Menezes",
-      email: "lucas@nortec.com.br",
-      category: "Hardware",
-      contract_until: iso(210),
-    }),
-    createSupplier({
-      name: "Vertex Tecnologia",
-      document: "98.765.432/0001-11",
-      contact: "Sofia Braga",
-      email: "sofia@vertex.io",
-      category: "Licenças",
-      contract_until: iso(64),
-    }),
-    createSupplier({
-      name: "SafeWork EPI",
-      document: "45.111.222/0001-33",
-      contact: "Bruno Tavares",
-      email: "bruno@safework.com",
-      category: "EPI",
-      contract_until: iso(-12),
-    }),
-  ]);
-
-  const employees = await Promise.all([
-    createEmployee({
-      name: "Marina Duarte",
-      email: "marina.duarte@assethub.co",
-      role: "Head de Engenharia",
-      department: "Engenharia",
-      status: "active",
-      location: "São Paulo - HQ",
-      hired_at: iso(-1420),
-    }),
-    createEmployee({
-      name: "Rafael Nunes",
-      email: "rafael.nunes@assethub.co",
-      role: "Gerente de Operações",
-      department: "Operações",
-      status: "active",
-      location: "Campinas - CD1",
-      hired_at: iso(-980),
-    }),
-    createEmployee({
-      name: "Helena Castro",
-      email: "helena.castro@assethub.co",
-      role: "Controller",
-      department: "Financeiro",
-      status: "active",
-      location: "São Paulo - HQ",
-      hired_at: iso(-2100),
-    }),
-    createEmployee({
-      name: "Diego Prado",
-      email: "diego.prado@assethub.co",
-      role: "Diretor Comercial",
-      department: "Comercial",
-      status: "active",
-      location: "Rio de Janeiro",
-      hired_at: iso(-640),
-    }),
-    createEmployee({
-      name: "Paula Ferraz",
-      email: "paula.ferraz@assethub.co",
-      role: "Técnica de Segurança",
-      department: "Operações",
-      status: "active",
-      location: "Campinas - CD1",
-      hired_at: iso(-380),
-    }),
-  ]);
+  // Cria usuários de verdade (Better-Auth) pros reps de exemplo — rep precisa ter login desde o
+  // merge employees→user (TODO-MERGE-COLABORADOR-USUARIO.md). `admin.createUser` é admin-only
+  // (mesma família de list-users/set-role, ver GATEWAY-ADMIN-ENDPOINTS.md) e, diferente de
+  // signUp, não loga como a conta nova — não derruba a sessão de quem clicou em "Popular com
+  // dados de exemplo". Best-effort: se quem chamou for manager (sem permissão de admin), o resto
+  // do seed segue sem usuários de exemplo vinculados, só com nomes em texto nos ativos.
+  let users: AdminUserSummary[] = [];
+  try {
+    const created = await Promise.all([
+      auth.createUser("marina.duarte@assethub.co", crypto.randomUUID(), "Marina Duarte", {
+        cargo: "Head de Engenharia",
+      }),
+      auth.createUser("rafael.nunes@assethub.co", crypto.randomUUID(), "Rafael Nunes", {
+        cargo: "Gerente de Operações",
+      }),
+      auth.createUser("helena.castro@assethub.co", crypto.randomUUID(), "Helena Castro", {
+        cargo: "Controller",
+      }),
+      auth.createUser("diego.prado@assethub.co", crypto.randomUUID(), "Diego Prado", {
+        cargo: "Diretor Comercial",
+      }),
+      auth.createUser("paula.ferraz@assethub.co", crypto.randomUUID(), "Paula Ferraz", {
+        cargo: "Técnica de Segurança",
+      }),
+    ]);
+    users = created.map((response) => response.user);
+  } catch (error) {
+    // 403 = rodando como manager, sem permissão de admin pra criar usuário — best-effort
+    // esperado, segue sem essa parte. Qualquer outro erro (ex.: e-mail de exemplo já existe de
+    // uma rodada anterior do seed) não deve ser engolido em silêncio — quem clicou em "Popular
+    // com dados de exemplo" precisa saber que os usuários de exemplo não foram criados desta vez.
+    if (!(error instanceof ApiError) || error.status !== 403) throw error;
+  }
 
   const assetSeeds: Partial<Asset>[] = [
     {
@@ -182,7 +139,6 @@ export async function seedDemoData(): Promise<SeedSummary> {
       condition: "good",
       manufacturer: "Apple",
       model: "A2918",
-      supplier: "Nortec Distribuidora",
       department: "Engenharia",
       assignee: "Marina Duarte",
       location: "São Paulo - HQ",
@@ -199,7 +155,6 @@ export async function seedDemoData(): Promise<SeedSummary> {
       condition: "good",
       manufacturer: "Lenovo",
       model: "21HD",
-      supplier: "Nortec Distribuidora",
       department: "Operações",
       assignee: "Rafael Nunes",
       location: "Campinas - CD1",
@@ -216,7 +171,6 @@ export async function seedDemoData(): Promise<SeedSummary> {
       condition: "good",
       manufacturer: "Dell",
       model: "7010 SFF",
-      supplier: "Nortec Distribuidora",
       location: "Depósito Central",
       purchase_value: 6100,
       purchase_date: iso(-200),
@@ -311,31 +265,33 @@ export async function seedDemoData(): Promise<SeedSummary> {
     }),
   ]);
 
-  // Atribuição de responsável (Pedido 3, license_assignments) é admin-only no gateway — manager
-  // também pode disparar o seed (ver help-drawer.tsx), então isto é best-effort: sem permissão,
-  // o resto dos dados de exemplo continua valendo, só fica sem "quem está com o que".
+  // Atribuição de responsável (Pedido 3, license_assignments) é admin-only no gateway, igual a
+  // criar usuário acima — best-effort, e também precisa de `users` não vazio (sem usuário de
+  // exemplo criado, não tem pra quem atribuir).
   let licenseAssignments = 0;
-  try {
-    await Promise.all([
-      createLicenseAssignment({
-        license_id: licenses[1].id,
-        assignee_id: employees[0].id,
-        assignee: employees[0].name,
-      }),
-      createLicenseAssignment({
-        license_id: licenses[2].id,
-        assignee_id: employees[0].id,
-        assignee: employees[0].name,
-      }),
-      createLicenseAssignment({
-        license_id: licenses[3].id,
-        assignee_id: employees[1].id,
-        assignee: employees[1].name,
-      }),
-    ]);
-    licenseAssignments = 3;
-  } catch {
-    // rodando como manager — sem permissão de admin pra atribuir, segue sem essa parte.
+  if (users.length >= 2) {
+    try {
+      await Promise.all([
+        createLicenseAssignment({
+          license_id: licenses[1].id,
+          assignee_id: users[0].id,
+          assignee: users[0].name,
+        }),
+        createLicenseAssignment({
+          license_id: licenses[2].id,
+          assignee_id: users[0].id,
+          assignee: users[0].name,
+        }),
+        createLicenseAssignment({
+          license_id: licenses[3].id,
+          assignee_id: users[1].id,
+          assignee: users[1].name,
+        }),
+      ]);
+      licenseAssignments = 3;
+    } catch {
+      // rodando como manager — sem permissão de admin pra atribuir, segue sem essa parte.
+    }
   }
 
   const movementTypes = ["checkout", "checkin", "transfer"] as const;
@@ -347,8 +303,8 @@ export async function seedDemoData(): Promise<SeedSummary> {
         asset_name: asset.name,
         type: movementTypes[index],
         from_label: "Estoque central",
-        to_label: employees[index]?.name ?? "Estoque central",
-        performed_by: employees[(index + 1) % employees.length]?.name ?? "Sistema",
+        to_label: users[index]?.name ?? "Estoque central",
+        performed_by: users.length > 0 ? (users[(index + 1) % users.length]?.name ?? "Sistema") : "Sistema",
         occurred_at: iso(-(index * 5 + 2)),
       }),
     ),
@@ -363,7 +319,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
         asset_name: asset.name,
         type: index === 0 ? "preventive" : "corrective",
         status: index === 0 ? "scheduled" : "in_progress",
-        provider: suppliers[0]?.name ?? "Fornecedor",
+        provider: "Nortec Assistência Técnica",
         opened_at: iso(-10),
         due_at: iso(10),
         cost: 350 + index * 200,
@@ -411,8 +367,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
   return {
     departments: departments.length,
     categories: categories.length,
-    suppliers: suppliers.length,
-    employees: employees.length,
+    users: users.length,
     assets: assets.length,
     licenses: licenses.length,
     licenseAssignments,

@@ -18,7 +18,7 @@ import { createDepartment, listDepartments } from "@/lib/data/departments.repo";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
 import { useCategoryOptions } from "@/shared/hooks/use-category-options";
-import { useEmployeeOptions } from "@/shared/hooks/use-employee-options";
+import { useUserOptions } from "@/shared/hooks/use-user-options";
 import { findByNameCaseInsensitive } from "@/shared/utils/find-by-name";
 import { sortOptionsByLabel } from "@/shared/utils/sort-options";
 
@@ -38,7 +38,7 @@ const columns: Column<Ppe>[] = [
   { key: "name", header: "EPI", cell: (row) => <span className="font-medium">{row.name}</span> },
   { key: "ca", header: "CA", cell: (row) => mono(row.ca) },
   { key: "category", header: "Categoria", cell: (row) => muted(row.category) },
-  { key: "assignee", header: "Colaborador", cell: (row) => muted(row.assignee) },
+  { key: "assignee", header: "Responsável", cell: (row) => muted(row.assignee) },
   { key: "department", header: "Departamento", cell: (row) => muted(row.department) },
   {
     key: "status",
@@ -70,7 +70,7 @@ function buildCreateFields(
   nameOptions: string[],
   categoryOptions: SelectFieldOption[],
   onCreateCategory: (name: string) => Promise<SelectFieldOption>,
-  employeeOptions: SelectFieldOption[],
+  userOptions: SelectFieldOption[],
   departmentOptions: SelectFieldOption[],
   onCreateDepartment: (name: string) => Promise<SelectFieldOption>,
 ): FormFieldDef[] {
@@ -99,10 +99,10 @@ function buildCreateFields(
     },
     {
       name: "assignee_id",
-      label: "Colaborador",
+      label: "Responsável",
       type: "combobox",
-      placeholder: "Sem colaborador",
-      options: employeeOptions,
+      placeholder: "Sem responsável",
+      options: userOptions,
       deriveFields: (option) => ({ assignee: option.label }),
     },
     // `ppes` não tem `department_id` no schema (só `department` texto) — a opção e o valor
@@ -142,7 +142,7 @@ export function PpeScreen() {
   });
   const { options: categoryOptions, createOption: createCategoryOption } =
     useCategoryOptions("ppe");
-  const employeeOptions = useEmployeeOptions();
+  const userOptions = useUserOptions();
 
   const departmentOptions = useMemo(
     () =>
@@ -171,7 +171,7 @@ export function PpeScreen() {
         nameOptions,
         categoryOptions,
         createCategoryOption,
-        employeeOptions,
+        userOptions,
         departmentOptions,
         createDepartmentOption,
       ),
@@ -179,7 +179,7 @@ export function PpeScreen() {
       nameOptions,
       categoryOptions,
       createCategoryOption,
-      employeeOptions,
+      userOptions,
       departmentOptions,
       createDepartmentOption,
     ],
@@ -210,7 +210,7 @@ export function PpeScreen() {
             items={[
               { label: "Status", value: <StatusBadge status={effectivePpeStatus(row)} /> },
               { label: "CA", value: row.ca ?? "—" },
-              { label: "Colaborador", value: row.assignee ?? "—" },
+              { label: "Responsável", value: row.assignee ?? "—" },
               { label: "Departamento", value: row.department ?? "—" },
               { label: "Entregue em", value: formatDate(row.delivered_at) },
               { label: "Validade", value: formatDate(row.expires_at) },

@@ -7,15 +7,13 @@ import {
   ClipboardCheck,
   Cpu,
   HardHat,
+  IdCard,
   KeyRound,
   LayoutDashboard,
   ListChecks,
   Package,
   Repeat,
   Shapes,
-  Truck,
-  UserCog,
-  Users,
   Wrench,
 } from "lucide-react";
 
@@ -104,19 +102,11 @@ export const navItems: NavItem[] = [
     blurb: "Assentos e renovação",
   },
   {
-    label: "Fornecedores",
-    to: "/suppliers",
-    icon: Truck,
-    group: "financeiro",
-    blurb: "Parceiros de compra",
-    roles: ["admin", "manager"],
-  },
-  {
-    label: "Colaboradores",
-    to: "/employees",
-    icon: Users,
+    label: "Cargos",
+    to: "/cargo",
+    icon: IdCard,
     group: "organizacao",
-    blurb: "Pessoas e seus ativos",
+    blurb: "Cargo de cada usuário",
     roles: ["admin", "manager"],
   },
   {
@@ -142,14 +132,6 @@ export const navItems: NavItem[] = [
     group: "sistema",
     blurb: "Taxonomia dos ativos",
     roles: ["admin", "manager"],
-  },
-  {
-    label: "Usuários",
-    to: "/users",
-    icon: UserCog,
-    group: "sistema",
-    blurb: "Papéis e permissões",
-    roles: ["admin"],
   },
 ];
 

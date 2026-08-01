@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { listAssets, updateAsset, type Asset } from "@/lib/data/assets.repo";
-import { employeesListQueryKey, listEmployees, type Employee } from "@/lib/data/employees.repo";
+import { listUsersLite, usersLiteListQueryKey, type UserLite } from "@/lib/data/users-lite.repo";
 import { effectiveLicenseStatus, listLicenses } from "@/lib/data/licenses.repo";
 import { listMaintenanceOrders } from "@/lib/data/maintenance.repo";
 import { listMovements, type Movement } from "@/lib/data/movements.repo";
@@ -120,7 +120,7 @@ interface PendingHandoff {
   movement: Movement;
   /** "clear" = devolveu, ninguém fica com o ativo. "assign" = peguei/repassei, alguém fica. */
   action: "clear" | "assign";
-  targetEmployee?: Employee;
+  targetUser?: UserLite;
 }
 
 /**
@@ -140,7 +140,7 @@ interface PendingHandoff {
 function derivePendingHandoffs(
   assets: Asset[],
   movements: Movement[],
-  employees: Employee[],
+  users: UserLite[],
 ): PendingHandoff[] {
   const latestByAsset = new Map<string, Movement>();
   for (const movement of movements) {
@@ -169,9 +169,13 @@ function derivePendingHandoffs(
     }
 
     if (!movement.to_label) continue;
-    const targetEmployee = findByNameCaseInsensitive(employees, movement.to_label, (e) => e.name);
-    if (targetEmployee && asset.assignee_id !== targetEmployee.id) {
-      pending.push({ asset, movement, action: "assign", targetEmployee });
+    const targetUser = findByNameCaseInsensitive(
+      users,
+      movement.to_label,
+      (u) => u.name ?? u.email,
+    );
+    if (targetUser && asset.assignee_id !== targetUser.id) {
+      pending.push({ asset, movement, action: "assign", targetUser });
     }
   }
   return pending;
@@ -189,14 +193,14 @@ export function PendingHandoffsPanel() {
     queryKey: ["movements", "list"],
     queryFn: listMovements,
   });
-  const { data: employees = [] } = useListQuery({
-    queryKey: employeesListQueryKey,
-    queryFn: listEmployees,
+  const { data: users = [] } = useListQuery({
+    queryKey: usersLiteListQueryKey,
+    queryFn: listUsersLite,
   });
 
   const pending = useMemo(
-    () => derivePendingHandoffs(assets, movements, employees),
-    [assets, movements, employees],
+    () => derivePendingHandoffs(assets, movements, users),
+    [assets, movements, users],
   );
 
   if (pending.length === 0) return null;
@@ -208,8 +212,8 @@ export function PendingHandoffsPanel() {
         item.action === "clear"
           ? { assignee_id: null, assignee: null, status: "available" as const }
           : {
-              assignee_id: item.targetEmployee!.id,
-              assignee: item.targetEmployee!.name,
+              assignee_id: item.targetUser!.id,
+              assignee: item.targetUser!.name ?? item.targetUser!.email,
               status: "in_use" as const,
             };
       await updateAsset(item.asset.id, patch);
@@ -244,7 +248,9 @@ export function PendingHandoffsPanel() {
               <p className="truncate text-xs text-muted-foreground">
                 {item.movement.performed_by ?? "—"} ·{" "}
                 {ACTIVITY_VERBS[item.movement.type] ?? item.movement.type} · agora fica{" "}
-                {item.action === "clear" ? "sem responsável" : `com ${item.targetEmployee!.name}`}
+                {item.action === "clear"
+                  ? "sem responsável"
+                  : `com ${item.targetUser!.name ?? item.targetUser!.email}`}
               </p>
             </div>
             <Button
@@ -266,16 +272,16 @@ export function PendingHandoffsPanel() {
 /**
  * "Quem está com o quê" — agrupa `assets` por `assignee_id` (qualquer tipo: notebook, móvel,
  * veículo... EPI fica de fora de propósito, mora em `ppes` e é uso individual, não faz sentido
- * listar como "patrimônio na mão de alguém"). Ao lado de cada colaborador, mostra o EPI que a
- * função dele exige (`ppe_requirements`, casado por texto com `employees.role`) — só a lista do
- * que é exigido, sem cruzar com o que já foi entregue (ver docs/rbac-papeis.md pra outras
- * decisões desse tipo neste projeto).
+ * listar como "patrimônio na mão de alguém"). Ao lado de cada usuário, mostra o EPI que o cargo
+ * dele exige (`ppe_requirements`, casado por texto com `user.cargo`) — só a lista do que é
+ * exigido, sem cruzar com o que já foi entregue (ver docs/rbac-papeis.md pra outras decisões
+ * desse tipo neste projeto).
  */
 export function AssignedEquipmentPanel() {
   const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
-  const { data: employees = [] } = useListQuery({
-    queryKey: ["employees", "list"],
-    queryFn: listEmployees,
+  const { data: users = [] } = useListQuery({
+    queryKey: usersLiteListQueryKey,
+    queryFn: listUsersLite,
   });
   const { data: requirements = [] } = useListQuery({
     queryKey: ["ppe_requirements", "list"],
@@ -283,20 +289,20 @@ export function AssignedEquipmentPanel() {
   });
 
   const holders = useMemo(() => {
-    const assetsByEmployeeId = new Map<string, Asset[]>();
+    const assetsByUserId = new Map<string, Asset[]>();
     for (const asset of assets) {
       if (!asset.assignee_id) continue;
-      const held = assetsByEmployeeId.get(asset.assignee_id) ?? [];
+      const held = assetsByUserId.get(asset.assignee_id) ?? [];
       held.push(asset);
-      assetsByEmployeeId.set(asset.assignee_id, held);
+      assetsByUserId.set(asset.assignee_id, held);
     }
 
-    return employees
-      .map((employee) => ({ employee, assets: assetsByEmployeeId.get(employee.id) ?? [] }))
+    return users
+      .map((user) => ({ user, assets: assetsByUserId.get(user.id) ?? [] }))
       .filter((entry) => entry.assets.length > 0)
       .sort((a, b) => b.assets.length - a.assets.length)
       .slice(0, 3);
-  }, [assets, employees]);
+  }, [assets, users]);
 
   const requiredPpeByFunction = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -311,16 +317,20 @@ export function AssignedEquipmentPanel() {
 
   return (
     <div className="panel overflow-hidden">
-      <PanelHeader title="Quem está com o quê" to="/employees" />
+      <PanelHeader title="Quem está com o quê" to="/users" />
       <ul className="divide-y divide-border">
-        {holders.map(({ employee, assets: heldAssets }) => {
-          const requiredPpe = requiredPpeByFunction.get(employee.role.trim().toLowerCase());
+        {holders.map(({ user, assets: heldAssets }) => {
+          // Sem cargo definido não deve casar com uma linha de ppe_requirements que porventura
+          // tenha function_name vazio — não é "a mesma função", é "nenhuma função ainda".
+          const requiredPpe = user.cargo
+            ? requiredPpeByFunction.get(user.cargo.trim().toLowerCase())
+            : undefined;
           const shown = heldAssets.slice(0, 4);
           const extra = heldAssets.length - shown.length;
 
           return (
-            <li key={employee.id} className="px-4 py-3">
-              <UserChip name={employee.name} subtitle={employee.role} />
+            <li key={user.id} className="px-4 py-3">
+              <UserChip name={user.name ?? user.email} subtitle={user.cargo ?? undefined} />
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {shown.map((asset) => (
                   <span
