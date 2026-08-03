@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { notifications } from "@/mock/notifications";
 import { getErrorMessage } from "@/shared/utils/errors";
 import { formatRelative, initials } from "@/shared/utils/format";
-import { isAdmin } from "@/shared/utils/permissions";
+import { isAdmin, canManageCatalog } from "@/shared/utils/permissions";
 import {
   Bell,
   ChevronDown,
@@ -145,19 +145,21 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
             <TooltipContent>Tema {theme === "dark" ? "claro" : "escuro"}</TooltipContent>
           </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="hidden size-8 p-0 sm:inline-flex"
-                onClick={onOpenHelp}
-              >
-                <CircleHelp className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Guia do sistema</TooltipContent>
-          </Tooltip>
+          {canManageCatalog(role) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hidden size-8 p-0 sm:inline-flex"
+                  onClick={onOpenHelp}
+                >
+                  <CircleHelp className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Guia do sistema</TooltipContent>
+            </Tooltip>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -184,9 +186,11 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
                   </Link>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onSelect={onOpenHelp} className="sm:hidden">
-                <CircleHelp className="size-4" /> Guia do sistema
-              </DropdownMenuItem>
+              {canManageCatalog(role) && (
+                <DropdownMenuItem onSelect={onOpenHelp} className="sm:hidden">
+                  <CircleHelp className="size-4" /> Guia do sistema
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={logout}>
                 <LogOut className="size-4" /> Sair
