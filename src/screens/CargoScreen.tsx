@@ -42,8 +42,8 @@ function filterByNameOrEmail<T extends { name: string | null; email: string }>(
 /**
  * Recorte de `/users` acessível a admin **e** manager — `/users` (papel de acesso completo) fica
  * admin-only de verdade porque depende do plugin admin do Better-Auth (`auth.listUsers`/
- * `setRole`), que o servidor recusa pra manager (ver GATEWAY-ADMIN-ENDPOINTS.md). Esta tela usa
- * só `/data/users_lite`, que o gateway já libera pra admin+manager.
+ * `setRole`), que o servidor recusa pra manager. Esta tela usa só `/data/users_lite`, que o
+ * gateway já libera pra admin+manager.
  *
  * Duas abas (pedido do Erik): "O que cada um tem" é a padrão — cards pra bater o olho no que já
  * está atribuído, não uma tabela de gestão (por isso não é `ResourcePage`: aqui não tem

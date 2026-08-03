@@ -96,12 +96,13 @@ export async function seedDemoData(): Promise<SeedSummary> {
     }),
   ]);
 
-  // Cria usuários de verdade (Better-Auth) pros reps de exemplo — rep precisa ter login desde o
-  // merge employees→user (TODO-MERGE-COLABORADOR-USUARIO.md). `admin.createUser` é admin-only
-  // (mesma família de list-users/set-role, ver GATEWAY-ADMIN-ENDPOINTS.md) e, diferente de
-  // signUp, não loga como a conta nova — não derruba a sessão de quem clicou em "Popular com
-  // dados de exemplo". Best-effort: se quem chamou for manager (sem permissão de admin), o resto
-  // do seed segue sem usuários de exemplo vinculados, só com nomes em texto nos ativos.
+  // Cria usuários de verdade (Better-Auth) pros reps de exemplo — rep precisa ter login, já que
+  // rep é o próprio usuário (não um cadastro de RH separado). `admin.createUser` é admin-only
+  // (mesma família de list-users/set-role, endpoints ainda não confirmados contra o gateway real)
+  // e, diferente de signUp, não loga como a conta nova — não derruba a sessão de quem clicou em
+  // "Popular com dados de exemplo". Best-effort: se quem chamou for manager (sem permissão de
+  // admin), o resto do seed segue sem usuários de exemplo vinculados, só com nomes em texto nos
+  // ativos.
   //
   // Reaproveita usuário existente por e-mail em vez de tentar criar de novo — sem isto, clicar
   // "Popular com dados de exemplo" uma segunda vez batia no unique de "user".email e abortava o

@@ -20,9 +20,9 @@ export interface CargoCellUser {
 }
 
 /**
- * Cargo do usuário (ex.: "Técnica de Segurança") — additionalField do Better-Auth
- * (`dev-gateway/src/auth.ts`), editado via `/data/users_lite` (extensão de gateway própria, não
- * é `employees` — ver TODO-MERGE-COLABORADOR-USUARIO.md). Combobox criável (mesmo componente de
+ * Cargo do usuário (ex.: "Técnica de Segurança") — additionalField do Better-Auth, editado via
+ * `/data/users_lite` (extensão de gateway própria; rep é o próprio usuário, não um cadastro de
+ * RH separado). Combobox criável (mesmo componente de
  * categoria/departamento — `ComboboxField`), não um `Select` fechado: sugere os `function_name`
  * de `ppe_requirements` (evita erro de digitação que quebraria o match de EPI exigido), mas
  * permite digitar um cargo novo — sem isso, um tenant sem nenhum requisito de EPI cadastrado

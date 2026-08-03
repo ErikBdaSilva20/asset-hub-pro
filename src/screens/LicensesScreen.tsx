@@ -57,9 +57,8 @@ const billingPeriodLabel: Record<License["billing_period"], string> = {
   annual: "/ano",
 };
 
-// `licenses` não tem `category_id`/`owner_department` com FK de departamento no schema além da
-// categoria (que sim tem `category_id`, ver TABLES em dev-gateway/src/schema.ts) — `owner_department`
-// segue por nome, sem id, igual `ppes.department` (ver PpeScreen.tsx).
+// `licenses` não tem FK de departamento no schema além da categoria (que sim tem `category_id`)
+// — `owner_department` segue por nome, sem id, igual `ppes.department` (ver PpeScreen.tsx).
 function buildBaseFields(
   categoryOptions: SelectFieldOption[],
   onCreateCategory: (name: string) => Promise<SelectFieldOption>,

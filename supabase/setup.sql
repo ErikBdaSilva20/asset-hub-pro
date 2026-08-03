@@ -1,7 +1,15 @@
 -- =====================================================
--- Schema consolidado — template "asset-hub" (fundação Masia)
+-- setup.sql — schema do template "asset-hub" (fundação Masia)
+-- Fonte-da-verdade única do schema. Roda no Neon do tenant depois que o
+-- gateway já criou as tabelas do Better-Auth (precisa de "user" existindo
+-- antes deste script).
+--
+-- Idempotente: seguro rodar mais de uma vez no mesmo banco (create ... if
+-- not exists / do $$ ... exception when duplicate_object / drop trigger if
+-- exists). Testado rodando 2x seguidas num Postgres limpo.
+--
 -- Sem RLS, sem auth.uid(), sem tabela profiles — autorização é 100% do
--- tenant-gateway (app-layer). Ver Importantdoc.md §B4.
+-- tenant-gateway (app-layer).
 -- =====================================================
 
 -- ---------------------------------------------------
@@ -24,12 +32,12 @@ exception when duplicate_object then null;
 end $$;
 
 do $$ begin
-  create type employee_status as enum ('active', 'on_leave', 'offboarded');
+  create type license_status as enum ('active', 'expiring', 'expired', 'unassigned');
 exception when duplicate_object then null;
 end $$;
 
 do $$ begin
-  create type license_status as enum ('active', 'expiring', 'expired', 'unassigned');
+  create type license_billing_period as enum ('monthly', 'annual');
 exception when duplicate_object then null;
 end $$;
 
@@ -120,67 +128,14 @@ create trigger trg_categories_updated_at
   for each row execute function touch_updated_at();
 
 -- ---------------------------------------------------
--- suppliers
--- ---------------------------------------------------
-
-create table if not exists suppliers (
-  id             uuid primary key default gen_random_uuid(),
-  owner_id       text not null references "user"(id) on delete cascade,
-  name           text not null,
-  document       text,
-  contact        text,
-  email          text,
-  category       text,
-  contract_until timestamptz,
-  active_assets  integer not null default 0,
-  created_at     timestamptz not null default now(),
-  updated_at     timestamptz not null default now()
-);
-
-create index if not exists idx_suppliers_owner on suppliers(owner_id);
-
-drop trigger if exists trg_suppliers_updated_at on suppliers;
-create trigger trg_suppliers_updated_at
-  before update on suppliers
-  for each row execute function touch_updated_at();
-
--- ---------------------------------------------------
--- employees
--- ---------------------------------------------------
-
-create table if not exists employees (
-  id             uuid primary key default gen_random_uuid(),
-  owner_id       text not null references "user"(id) on delete cascade,
-  name           text not null,
-  email          text not null,
-  role           text not null,
-  department_id  uuid references departments(id) on delete set null,
-  department     text,
-  status         employee_status not null default 'active',
-  hired_at       timestamptz not null default now(),
-  assets_count   integer not null default 0,
-  location       text,
-  created_at     timestamptz not null default now(),
-  updated_at     timestamptz not null default now()
-);
-
-create index if not exists idx_employees_owner on employees(owner_id);
-create index if not exists idx_employees_department on employees(department_id);
-
-comment on column employees.role is 'Cargo do colaborador (texto livre) — não confundir com o papel de sistema (admin/manager/rep) do Better-Auth.';
-
-drop trigger if exists trg_employees_updated_at on employees;
-create trigger trg_employees_updated_at
-  before update on employees
-  for each row execute function touch_updated_at();
-
--- ---------------------------------------------------
--- assets
+-- assets — vira lookup em 0002 (sem owner_id: leitura liberada a todo logado,
+-- escrita só admin/manager pelo gateway). `supplier_id`/`supplier` removidos
+-- em 0008. `assignee_id` aponta pro Better-Auth direto desde 0009 (rep é o
+-- próprio usuário, não um cadastro de RH separado).
 -- ---------------------------------------------------
 
 create table if not exists assets (
   id               uuid primary key default gen_random_uuid(),
-  owner_id         text not null references "user"(id) on delete cascade,
   tag              text not null,
   name             text not null,
   kind             asset_kind not null,
@@ -191,11 +146,9 @@ create table if not exists assets (
   serial_number    text,
   model            text,
   manufacturer     text,
-  supplier_id      uuid references suppliers(id) on delete set null,
-  supplier         text,
   department_id    uuid references departments(id) on delete set null,
   department       text,
-  assignee_id      uuid references employees(id) on delete set null,
+  assignee_id      text references "user"(id) on delete set null,
   assignee         text,
   location         text,
   purchase_date    timestamptz,
@@ -206,11 +159,9 @@ create table if not exists assets (
   constraint assets_tag_key unique (tag)
 );
 
--- idx_assets_owner removido daqui: assets virou tabela lookup em 0002_rbac_visibility.sql
--- (owner_id deixou de existir) — criar e derrubar o índice na sequência é só ruído, e quebra
--- reaplicar as migrations em um banco já migrado (create index falha, coluna não existe mais).
 create index if not exists idx_assets_category on assets(category_id);
 create index if not exists idx_assets_kind on assets(kind);
+create index if not exists idx_assets_assignee on assets(assignee_id);
 
 comment on column assets.category is 'Denormalizado a partir de categories.name — modo genérico do gateway não faz join (Importantdoc.md §B5). "Equipamentos" é um recorte client-side desta mesma tabela por kind, não uma tabela separada.';
 
@@ -220,30 +171,59 @@ create trigger trg_assets_updated_at
   for each row execute function touch_updated_at();
 
 -- ---------------------------------------------------
--- licenses
+-- licenses — vira lookup em 0002. Simplificada em 0005 (sem seats/key,
+-- ganha billing_period; annual_cost renomeada pra cost). Ganha category_id
+-- em 0007. `assignee_id`/`assignee` saem daqui em 0006 → license_assignments
+-- (acesso admin-only garantido no gateway, não só na UI).
 -- ---------------------------------------------------
 
 create table if not exists licenses (
   id                uuid primary key default gen_random_uuid(),
-  owner_id          text not null references "user"(id) on delete cascade,
   name              text not null,
   vendor            text,
-  key               text,
-  seats_total       integer not null default 0,
-  seats_used        integer not null default 0,
   status            license_status not null default 'active',
+  billing_period    license_billing_period not null default 'annual',
   renewal_date      timestamptz,
-  annual_cost       numeric(14, 2) not null default 0,
+  cost              numeric(14, 2) not null default 0,
   owner_department  text,
+  category_id       uuid references categories(id) on delete set null,
+  category          text,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
 
--- idx_licenses_owner removido: licenses virou tabela lookup em 0002_rbac_visibility.sql.
+create index if not exists idx_licenses_category on licenses(category_id);
+
+comment on column licenses.cost is 'Custo do período indicado em billing_period (mensal ou anual) — não é sempre anual.';
 
 drop trigger if exists trg_licenses_updated_at on licenses;
 create trigger trg_licenses_updated_at
   before update on licenses
+  for each row execute function touch_updated_at();
+
+-- ---------------------------------------------------
+-- license_assignments (0006) — "quem tem qual assinatura", isolada da
+-- licenses porque o gateway restringe esta tabela a admin em qualquer verbo
+-- (TableDef.adminOnly, ver dev-gateway/src/schema.ts) — rep/manager não veem
+-- o responsável nem chamando a API direto. `assignee_id` aponta pro
+-- Better-Auth direto desde 0009.
+-- ---------------------------------------------------
+
+create table if not exists license_assignments (
+  id           uuid primary key default gen_random_uuid(),
+  license_id   uuid not null references licenses(id) on delete cascade,
+  assignee_id  text references "user"(id) on delete set null,
+  assignee     text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  constraint license_assignments_license_key unique (license_id)
+);
+
+create index if not exists idx_license_assignments_assignee on license_assignments(assignee_id);
+
+drop trigger if exists trg_license_assignments_updated_at on license_assignments;
+create trigger trg_license_assignments_updated_at
+  before update on license_assignments
   for each row execute function touch_updated_at();
 
 -- ---------------------------------------------------
@@ -300,29 +280,56 @@ create trigger trg_maintenance_orders_updated_at
   for each row execute function touch_updated_at();
 
 -- ---------------------------------------------------
--- ppes
+-- ppes — vira lookup em 0002. Ganha cost/category_id/category em 0003.
+-- `assignee_id` aponta pro Better-Auth direto desde 0009.
 -- ---------------------------------------------------
 
 create table if not exists ppes (
   id           uuid primary key default gen_random_uuid(),
-  owner_id     text not null references "user"(id) on delete cascade,
   name         text not null,
   ca           text,
+  assignee_id  text references "user"(id) on delete set null,
   assignee     text,
   department   text,
   delivered_at timestamptz,
   expires_at   timestamptz,
   status       ppe_status not null default 'valid',
   stock        integer not null default 0,
+  cost         numeric(14, 2) not null default 0,
+  category_id  uuid references categories(id) on delete set null,
+  category     text,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
 
--- idx_ppes_owner removido: ppes virou tabela lookup em 0002_rbac_visibility.sql.
+create index if not exists idx_ppes_assignee on ppes(assignee_id);
+create index if not exists idx_ppes_category on ppes(category_id);
 
 drop trigger if exists trg_ppes_updated_at on ppes;
 create trigger trg_ppes_updated_at
   before update on ppes
+  for each row execute function touch_updated_at();
+
+-- ---------------------------------------------------
+-- ppe_requirements (0004) — requisitos de EPI por função. Tabela lookup
+-- (sem owner_id): leitura liberada a qualquer logado, escrita só
+-- admin/manager (Importantdoc.md §B4.6).
+-- ---------------------------------------------------
+
+create table if not exists ppe_requirements (
+  id            uuid primary key default gen_random_uuid(),
+  function_name text not null,
+  ppe_name      text not null,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  constraint ppe_requirements_function_ppe_key unique (function_name, ppe_name)
+);
+
+create index if not exists idx_ppe_requirements_function on ppe_requirements(function_name);
+
+drop trigger if exists trg_ppe_requirements_updated_at on ppe_requirements;
+create trigger trg_ppe_requirements_updated_at
+  before update on ppe_requirements
   for each row execute function touch_updated_at();
 
 -- ---------------------------------------------------

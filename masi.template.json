@@ -5,17 +5,7 @@
   "version": "1.0.0",
   "engine": "vite-react-gateway",
   "schemaVersion": 1,
-  "migrations": [
-    "0001_business_schema.sql",
-    "0002_rbac_visibility.sql",
-    "0003_ppe_cost_category.sql",
-    "0004_ppe_requirements.sql",
-    "0005_licenses_simplify.sql",
-    "0006_license_assignments.sql",
-    "0007_license_category.sql",
-    "0008_drop_suppliers.sql",
-    "0009_employees_to_user.sql"
-  ],
+  "migrations": ["setup.sql"],
   "auth": { "provider": "better-auth", "roles": ["admin", "manager", "rep"] },
   "screens": [
     {
@@ -102,7 +92,6 @@
       "src/components/RequireAuth.tsx",
       "src/shared/**",
       "src/lib/data/*.repo.ts",
-      "src/mock/notifications.ts",
       "src/styles.css"
     ],
     "protect": [
@@ -117,7 +106,7 @@
       "src/lib/utils.ts",
       "vite.config.ts",
       "components.json",
-      "supabase/migrations/**"
+      "supabase/setup.sql"
     ]
   },
   "composio": { "toolkits": [] },

@@ -13,19 +13,18 @@ export interface RoleScopedResource<T> {
 }
 
 /**
- * Adapta uma tabela "lookup" (leitura aberta a todo logado, escrita só admin/manager —
- * Importantdoc.md §B4.6) à experiência de cada papel: admin/manager veem e gerenciam tudo; rep
- * vê só os itens atribuídos a ele (via `assignee_id`) e não pode criar. Mesmo padrão reaproveitado
- * em Ativos, Equipamentos e EPIs — centraliza a regra pra não duplicá-la 3x.
+ * Adapta uma tabela "lookup" (leitura aberta a todo logado, escrita só admin/manager) à
+ * experiência de cada papel: admin/manager veem e gerenciam tudo; rep vê só os itens atribuídos
+ * a ele (via `assignee_id`) e não pode criar. Mesmo padrão reaproveitado em Ativos, Equipamentos
+ * e EPIs — centraliza a regra pra não duplicá-la 3x.
  *
- * Rep é usuário (Better-Auth) desde o merge employees→user (ver
- * TODO-MERGE-COLABORADOR-USUARIO.md) — "é meu?" é `assignee_id === session.user.id` direto, sem
- * outra tabela pra casar por e-mail. Isso também elimina o estado "conta sem vínculo" que existia
- * antes: toda conta rep JÁ é o vínculo.
+ * Rep é o próprio usuário (Better-Auth), não um cadastro de RH separado — "é meu?" é
+ * `assignee_id === session.user.id` direto, sem outra tabela pra casar por e-mail. Isso também
+ * elimina o estado "conta sem vínculo" que existia antes: toda conta rep JÁ é o vínculo.
  *
  * `LicensesScreen` não usa este hook: "quem tem qual assinatura" é admin-only de verdade
- * (`license_assignments`, garantia de servidor — ver docs/rbac-papeis.md), não um recorte
- * "rep só vê o que é dele" como as outras tabelas lookup.
+ * (`license_assignments`, garantia de servidor), não um recorte "rep só vê o que é dele" como
+ * as outras tabelas lookup.
  */
 export function useRoleScopedResource<T>(
   fetchAll: () => Promise<T[]>,

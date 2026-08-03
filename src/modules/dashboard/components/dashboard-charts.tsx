@@ -58,8 +58,8 @@ const tooltipStyle = {
  * Soma 4 fontes de gasto por categoria: compra de ativos (assets.purchase_value), manutenção
  * (maintenance_orders.cost, sem categoria própria — herda a do ativo via asset_id), reposição
  * de EPI (ppes.cost) e assinaturas (licenses.cost, anualizado — ver annualizedLicenseCost).
- * "Categoria" aqui é sempre o texto denormalizado (Importantdoc.md §B5, modo genérico não faz
- * join) — vem de `categories`, dinâmico, sem nada fixo no código.
+ * "Categoria" aqui é sempre o texto denormalizado (modo genérico do gateway não faz join) —
+ * vem de `categories`, dinâmico, sem nada fixo no código.
  */
 export function SpendByCategoryChart() {
   const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });

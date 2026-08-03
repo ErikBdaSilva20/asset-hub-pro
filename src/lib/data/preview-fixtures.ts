@@ -199,10 +199,10 @@ const previewPpeRequirements: PpeRequirement[] = [
 ];
 
 // Fixture separado de `fixturesByTable` porque não é uma tabela `/data/:table` — é o mock dos
-// endpoints de admin do Better-Auth que a tela de Usuários consome (ver client.ts e
-// GATEWAY-ADMIN-ENDPOINTS.md pro porquê deles serem "melhor palpite", não confirmados). Mutado
-// em memória no `setRole` abaixo pra troca de papel parecer persistente dentro da sessão de
-// preview, sem precisar de storage nenhum.
+// endpoints de admin do Better-Auth que a tela de Usuários consome (ver client.ts pro porquê
+// deles serem "melhor palpite", não confirmados contra o gateway real). Mutado em memória no
+// `setRole` abaixo pra troca de papel parecer persistente dentro da sessão de preview, sem
+// precisar de storage nenhum.
 const previewAdminUsers: AdminUserSummary[] = [
   { id: PREVIEW_OWNER_ID, name: "Ana Ribeiro", email: "ana.ribeiro@assethub.co", role: "admin" },
   {
@@ -214,7 +214,7 @@ const previewAdminUsers: AdminUserSummary[] = [
   { id: "preview-user-3", name: "Paula Ferraz", email: "paula.ferraz@assethub.co", role: "rep" },
 ];
 
-// Mock de `/data/users_lite` (dev-gateway/src/users-lite-routes.ts) — mesmas pessoas de
+// Mock de `/data/users_lite` (extensão própria do gateway) — mesmas pessoas de
 // `previewAdminUsers`, mais `cargo`. Marina usa o mesmo `function_name` de
 // `previewPpeRequirements`, pra o painel de conformidade de EPI ter algo pra casar.
 const previewUsersLite: UserLite[] = [

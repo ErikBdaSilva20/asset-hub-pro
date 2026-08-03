@@ -274,8 +274,7 @@ export function PendingHandoffsPanel() {
  * veículo... EPI fica de fora de propósito, mora em `ppes` e é uso individual, não faz sentido
  * listar como "patrimônio na mão de alguém"). Ao lado de cada usuário, mostra o EPI que o cargo
  * dele exige (`ppe_requirements`, casado por texto com `user.cargo`) — só a lista do que é
- * exigido, sem cruzar com o que já foi entregue (ver docs/rbac-papeis.md pra outras decisões
- * desse tipo neste projeto).
+ * exigido, sem cruzar com o que já foi entregue.
  */
 export function AssignedEquipmentPanel() {
   const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });

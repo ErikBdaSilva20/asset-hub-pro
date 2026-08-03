@@ -23,7 +23,6 @@ dist-ssr
 # Env files (segredos locais — .env.example fica versionado)
 .env
 .env.local
-dev-gateway/.env
 
 # Editor directories and files
 .vscode/*

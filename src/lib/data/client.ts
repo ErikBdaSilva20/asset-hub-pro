@@ -1,5 +1,5 @@
 // PROTEGIDO — não editável pela IA (masi.template.json, editable.protect).
-// Contrato: Importantdoc.md §B5. Não redesenhar sem atualizar o manifesto.
+// Contrato com o tenant-gateway. Não redesenhar sem atualizar o manifesto.
 
 declare global {
   interface Window {
@@ -115,17 +115,16 @@ export interface GatewaySessionUser {
   email: string;
   name?: string | null;
   role?: "admin" | "manager" | "rep";
-  /** Cargo do rep (ex.: "Técnica de Segurança") — additionalField do Better-Auth, ver
-   * dev-gateway/src/auth.ts. Vem populado na própria sessão, sem chamada extra. */
+  /** Cargo do rep (ex.: "Técnica de Segurança") — additionalField do Better-Auth. Vem populado
+   * na própria sessão, sem chamada extra. */
   cargo?: string | null;
 }
 
-// ⚠️ listUsers/setRole abaixo NÃO ESTÃO CONFIRMADOS contra o tenant-gateway real — ver
-// GATEWAY-ADMIN-ENDPOINTS.md na raiz do repo pro histórico completo e o passo a passo de
-// verificação. Resumo: pedimos documentação desses endpoints pro time do tenant-gateway e não
-// veio resposta; os caminhos/formatos abaixo seguem a convenção *padrão* do plugin "admin" do
-// Better-Auth (https://www.better-auth.com/docs/plugins/admin), mas ninguém confirmou que esse
-// plugin está habilitado no tenant-gateway, nem que está montado nesses caminhos exatos.
+// ⚠️ listUsers/setRole abaixo NÃO ESTÃO CONFIRMADOS contra o tenant-gateway real. Pedimos
+// documentação desses endpoints pro time do tenant-gateway e não veio resposta; os
+// caminhos/formatos abaixo seguem a convenção *padrão* do plugin "admin" do Better-Auth
+// (https://www.better-auth.com/docs/plugins/admin), mas ninguém confirmou que esse plugin está
+// habilitado no tenant-gateway, nem que está montado nesses caminhos exatos.
 // Antes de depender disto em produção: logue como admin, abra /users, e veja se lista/troca de
 // papel funcionam de verdade. Se der 404 ou formato de resposta diferente, o conserto é só
 // aqui — UsersScreen.tsx consome só `auth.listUsers`/`auth.setRole`, não sabe da rota por trás.
@@ -155,10 +154,10 @@ export const auth = {
   listUsers: () => api<AdminListUsersResponse>("GET", "/api/auth/admin/list-users?limit=200"),
   setRole: (userId: string, role: "manager" | "rep") =>
     api<{ user: AdminUserSummary }>("POST", "/api/auth/admin/set-role", { userId, role }),
-  // Admin-only, mesma família de list-users/set-role (não confirmado contra produção — ver
-  // GATEWAY-ADMIN-ENDPOINTS.md). Cria um usuário sem afetar a sessão de quem chama (diferente de
-  // signUp, que faz login automático como a conta nova) — usado pelo seed de dados de exemplo pra
-  // criar reps de teste sem derrubar a sessão de quem clicou em "Popular com dados de exemplo".
+  // Admin-only, mesma família de list-users/set-role (não confirmado contra produção). Cria um
+  // usuário sem afetar a sessão de quem chama (diferente de signUp, que faz login automático
+  // como a conta nova) — usado pelo seed de dados de exemplo pra criar reps de teste sem
+  // derrubar a sessão de quem clicou em "Popular com dados de exemplo".
   createUser: (email: string, password: string, name: string, data?: Record<string, unknown>) =>
     api<{ user: AdminUserSummary }>("POST", "/api/auth/admin/create-user", {
       email,

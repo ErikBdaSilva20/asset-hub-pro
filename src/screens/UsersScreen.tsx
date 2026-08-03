@@ -126,7 +126,7 @@ export function UsersScreen() {
       errorTitle="Endpoint de administração indisponível"
       errorDescription={
         'O gateway ainda não confirmou "/api/auth/admin/list-users" — nada foi alterado no banco. ' +
-        "Detalhes e como verificar em GATEWAY-ADMIN-ENDPOINTS.md, na raiz do repo."
+        "Tente novamente em instantes."
       }
       detail={(row) => buildUserDetail(row, { assets, ppes, licenseAssignments, licenses })}
     />

@@ -17,8 +17,8 @@ export interface UserHoldings {
 /**
  * Agrupa ativos/EPIs/assinaturas por dono numa passada só (Maps, não `.filter()` por usuário) —
  * o card de cada pessoa é O(1) depois disso. Importa porque `assets`/`ppes` vêm inteiros do modo
- * genérico do gateway (sem paginação server-side, Importantdoc.md §B5): um tenant com volume
- * grande não pode virar N² só porque tem muita gente com muita coisa.
+ * genérico do gateway (sem paginação server-side): um tenant com volume grande não pode virar
+ * N² só porque tem muita gente com muita coisa.
  */
 export function useUserHoldings(
   users: UserLite[],
