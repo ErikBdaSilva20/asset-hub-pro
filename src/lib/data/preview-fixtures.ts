@@ -517,7 +517,39 @@ const fixturesByTable: Record<string, unknown[]> = {
   ppe_requirements: previewPpeRequirements,
 };
 
+// Demo pública (Vercel, sem login) — troca quem "está logado" sem precisar de sessão real.
+// Sujo de propósito: é build só-mock, não precisa ficar bonito (ver conversa da sessão).
+let currentPreviewUserId = ANA_ID;
+
+export function getPreviewRole(): "admin" | "manager" | "rep" {
+  return previewUsersLite.find((u) => u.id === currentPreviewUserId)?.role ?? "admin";
+}
+
+export function setPreviewRole(role: "admin" | "manager" | "rep") {
+  const match = previewUsersLite.find((u) => u.role === role);
+  if (match) currentPreviewUserId = match.id;
+}
+
 export function previewRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
+  if (path === "/api/auth/get-session") {
+    const match = previewUsersLite.find((u) => u.id === currentPreviewUserId);
+    return Promise.resolve({
+      user: match
+        ? {
+            id: match.id,
+            email: match.email,
+            name: match.name,
+            role: match.role ?? undefined,
+            cargo: match.cargo,
+          }
+        : null,
+    } as T);
+  }
+
+  if (path === "/api/auth/sign-out") {
+    return Promise.resolve(undefined as T);
+  }
+
   if (path.startsWith("/api/auth/admin/list-users")) {
     return Promise.resolve({ users: previewAdminUsers } as T);
   }

@@ -7,6 +7,7 @@ import { AppHeader } from "./app-header";
 import { HelpDrawer } from "./help-drawer";
 import { CommandPalette } from "./command-palette";
 import { OnboardingDialog } from "./onboarding-dialog";
+import { PreviewRoleSwitcher } from "./preview-role-switcher";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { theme, toggle } = useTheme();
@@ -24,6 +25,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           onOpenSearch={() => setPaletteOpen(true)}
         />
         <main>{children}</main>
+        <PreviewRoleSwitcher />
 
         <HelpDrawer open={helpOpen} onOpenChange={setHelpOpen} />
         <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
