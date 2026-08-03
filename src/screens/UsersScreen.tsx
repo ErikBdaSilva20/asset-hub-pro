@@ -11,8 +11,14 @@ import {
 } from "@/components/ui/select";
 import { ResourcePage } from "@/shared/components/resource-page";
 import { CargoCell } from "@/shared/components/cargo-cell";
+import { buildUserDetail } from "@/shared/components/user-detail";
 import type { Column } from "@/shared/components/data-table";
 import { auth, type AdminUserSummary } from "@/lib/data/client";
+import { listAssets } from "@/lib/data/assets.repo";
+import { listPpes } from "@/lib/data/ppes.repo";
+import { listLicenseAssignments } from "@/lib/data/license-assignments.repo";
+import { listLicenses } from "@/lib/data/licenses.repo";
+import { useListQuery } from "@/shared/hooks/use-list-query";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/shared/utils/errors";
 import { toast } from "sonner";
@@ -96,10 +102,21 @@ const columns: Column<AdminUserSummary>[] = [
 ];
 
 export function UsersScreen() {
+  const { data: assets = [] } = useListQuery({ queryKey: ["assets", "list"], queryFn: listAssets });
+  const { data: ppes = [] } = useListQuery({ queryKey: ["ppes", "list"], queryFn: listPpes });
+  const { data: licenseAssignments = [] } = useListQuery({
+    queryKey: ["license_assignments", "list"],
+    queryFn: listLicenseAssignments,
+  });
+  const { data: licenses = [] } = useListQuery({
+    queryKey: ["licenses", "list"],
+    queryFn: listLicenses,
+  });
+
   return (
     <ResourcePage
       title="Usuários"
-      description="Login, papel de acesso e cargo (usado pra conferência de EPI). Busque por nome, promova alguém a manager e defina o cargo. Admin não é gerenciável por aqui."
+      description="Login, papel de acesso e cargo (usado pra conferência de EPI). Busque por nome, promova alguém a manager e defina o cargo. Clique numa linha pra ver o que a pessoa tem. Admin não é gerenciável por aqui."
       resource={USERS_RESOURCE}
       list={() => auth.listUsers().then((response) => response.users)}
       columns={columns}
@@ -111,6 +128,7 @@ export function UsersScreen() {
         'O gateway ainda não confirmou "/api/auth/admin/list-users" — nada foi alterado no banco. ' +
         "Detalhes e como verificar em GATEWAY-ADMIN-ENDPOINTS.md, na raiz do repo."
       }
+      detail={(row) => buildUserDetail(row, { assets, ppes, licenseAssignments, licenses })}
     />
   );
 }

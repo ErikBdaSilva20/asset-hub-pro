@@ -32,10 +32,12 @@ const muted = (value: string | null | undefined) => (
   <span className="text-muted-foreground">{value ?? "—"}</span>
 );
 
-const rangeFilters = [
-  { key: "cost", label: "Custo", type: "number" as const },
-  { key: "renewal_date", label: "Renovação", type: "date" as const },
-];
+function buildRangeFilters(showValue: boolean) {
+  return [
+    ...(showValue ? [{ key: "cost", label: "Custo", type: "number" as const }] : []),
+    { key: "renewal_date", label: "Renovação", type: "date" as const },
+  ];
+}
 
 const statusOptions = [
   { value: "all", label: "Todos os status" },
@@ -108,35 +110,41 @@ function buildBaseFields(
   ];
 }
 
-const baseColumns: Column<License>[] = [
-  {
-    key: "name",
-    header: "Assinatura",
-    cell: (row) => <span className="font-medium">{row.name}</span>,
-  },
-  { key: "vendor", header: "Fornecedor", cell: (row) => muted(row.vendor) },
-  {
-    key: "status",
-    header: "Status",
-    cell: (row) => <StatusBadge status={effectiveLicenseStatus(row)} />,
-  },
-  {
-    key: "renewal",
-    header: "Renovação",
-    cell: (row) => <span className="tabular">{formatDate(row.renewal_date)}</span>,
-  },
-  {
-    key: "cost",
-    header: "Custo",
-    align: "right",
-    cell: (row) => (
-      <span className="tabular">
-        {formatCurrency(row.cost)}
-        {billingPeriodLabel[row.billing_period]}
-      </span>
-    ),
-  },
-];
+// Custo é dado sensível — rep nunca vê, só admin/manager (mesma regra de Ativos/EPIs).
+function buildBaseColumns(showValue: boolean): Column<License>[] {
+  const columns: Column<License>[] = [
+    {
+      key: "name",
+      header: "Assinatura",
+      cell: (row) => <span className="font-medium">{row.name}</span>,
+    },
+    { key: "vendor", header: "Fornecedor", cell: (row) => muted(row.vendor) },
+    {
+      key: "status",
+      header: "Status",
+      cell: (row) => <StatusBadge status={effectiveLicenseStatus(row)} />,
+    },
+    {
+      key: "renewal",
+      header: "Renovação",
+      cell: (row) => <span className="tabular">{formatDate(row.renewal_date)}</span>,
+    },
+  ];
+  if (showValue) {
+    columns.push({
+      key: "cost",
+      header: "Custo",
+      align: "right",
+      cell: (row) => (
+        <span className="tabular">
+          {formatCurrency(row.cost)}
+          {billingPeriodLabel[row.billing_period]}
+        </span>
+      ),
+    });
+  }
+  return columns;
+}
 
 /**
  * "Responsável" (quem tem a assinatura) vive em `license_assignments`, tabela admin-only no
@@ -147,7 +155,8 @@ const baseColumns: Column<License>[] = [
 export function LicensesScreen() {
   const { role } = useAuth();
   const admin = isAdmin(role);
-  const readOnly = !canManageCatalog(role);
+  const showValue = canManageCatalog(role);
+  const readOnly = !showValue;
   const queryClient = useQueryClient();
 
   const { data: assignments = [] } = useListQuery({
@@ -205,6 +214,7 @@ export function LicensesScreen() {
     [categoryOptions, createCategoryOption, departmentOptions, createDepartmentOption],
   );
 
+  const baseColumns = buildBaseColumns(showValue);
   const columns: Column<License>[] = admin
     ? [
         ...baseColumns.slice(0, 2),
@@ -283,7 +293,7 @@ export function LicensesScreen() {
         };
       }}
       statusOptions={statusOptions}
-      rangeFilters={rangeFilters}
+      rangeFilters={buildRangeFilters(showValue)}
       columns={columns}
       readOnly={readOnly}
       detail={(row) => ({
@@ -299,10 +309,14 @@ export function LicensesScreen() {
                   billingPeriodOptions.find((o) => o.value === row.billing_period)?.label ?? "—",
               },
               { label: "Renovação", value: formatDate(row.renewal_date) },
-              {
-                label: "Custo",
-                value: `${formatCurrency(row.cost)}${billingPeriodLabel[row.billing_period]}`,
-              },
+              ...(showValue
+                ? [
+                    {
+                      label: "Custo",
+                      value: `${formatCurrency(row.cost)}${billingPeriodLabel[row.billing_period]}`,
+                    },
+                  ]
+                : []),
               { label: "Departamento", value: row.owner_department ?? "—" },
               ...(admin
                 ? [{ label: "Responsável", value: assigneeByLicense.get(row.id) ?? "—" }]

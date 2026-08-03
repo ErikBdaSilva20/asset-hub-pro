@@ -1,6 +1,7 @@
 import { createDepartment } from "@/lib/data/departments.repo";
 import { createCategory } from "@/lib/data/categories.repo";
 import { auth, ApiError, type AdminUserSummary } from "@/lib/data/client";
+import { listUsersLite } from "@/lib/data/users-lite.repo";
 import { createAsset, type Asset } from "@/lib/data/assets.repo";
 import { createLicense } from "@/lib/data/licenses.repo";
 import { createLicenseAssignment } from "@/lib/data/license-assignments.repo";
@@ -101,31 +102,36 @@ export async function seedDemoData(): Promise<SeedSummary> {
   // signUp, não loga como a conta nova — não derruba a sessão de quem clicou em "Popular com
   // dados de exemplo". Best-effort: se quem chamou for manager (sem permissão de admin), o resto
   // do seed segue sem usuários de exemplo vinculados, só com nomes em texto nos ativos.
+  //
+  // Reaproveita usuário existente por e-mail em vez de tentar criar de novo — sem isto, clicar
+  // "Popular com dados de exemplo" uma segunda vez batia no unique de "user".email e abortava o
+  // resto do seed inteiro (ver histórico do PATCH 6 na revisão de código).
+  const DEMO_PEOPLE = [
+    { email: "marina.duarte@assethub.co", name: "Marina Duarte", cargo: "Head de Engenharia" },
+    { email: "rafael.nunes@assethub.co", name: "Rafael Nunes", cargo: "Gerente de Operações" },
+    { email: "helena.castro@assethub.co", name: "Helena Castro", cargo: "Controller" },
+    { email: "diego.prado@assethub.co", name: "Diego Prado", cargo: "Diretor Comercial" },
+    { email: "paula.ferraz@assethub.co", name: "Paula Ferraz", cargo: "Técnica de Segurança" },
+  ] as const;
+
   let users: AdminUserSummary[] = [];
   try {
-    const created = await Promise.all([
-      auth.createUser("marina.duarte@assethub.co", crypto.randomUUID(), "Marina Duarte", {
-        cargo: "Head de Engenharia",
+    const existing = await listUsersLite();
+    const existingByEmail = new Map(existing.map((u) => [u.email.toLowerCase(), u]));
+    users = await Promise.all(
+      DEMO_PEOPLE.map(async (person): Promise<AdminUserSummary> => {
+        const found = existingByEmail.get(person.email.toLowerCase());
+        if (found) return { id: found.id, name: found.name, email: found.email, role: found.role };
+        const { user } = await auth.createUser(person.email, crypto.randomUUID(), person.name, {
+          cargo: person.cargo,
+        });
+        return user;
       }),
-      auth.createUser("rafael.nunes@assethub.co", crypto.randomUUID(), "Rafael Nunes", {
-        cargo: "Gerente de Operações",
-      }),
-      auth.createUser("helena.castro@assethub.co", crypto.randomUUID(), "Helena Castro", {
-        cargo: "Controller",
-      }),
-      auth.createUser("diego.prado@assethub.co", crypto.randomUUID(), "Diego Prado", {
-        cargo: "Diretor Comercial",
-      }),
-      auth.createUser("paula.ferraz@assethub.co", crypto.randomUUID(), "Paula Ferraz", {
-        cargo: "Técnica de Segurança",
-      }),
-    ]);
-    users = created.map((response) => response.user);
+    );
   } catch (error) {
-    // 403 = rodando como manager, sem permissão de admin pra criar usuário — best-effort
-    // esperado, segue sem essa parte. Qualquer outro erro (ex.: e-mail de exemplo já existe de
-    // uma rodada anterior do seed) não deve ser engolido em silêncio — quem clicou em "Popular
-    // com dados de exemplo" precisa saber que os usuários de exemplo não foram criados desta vez.
+    // 403 = rodando como manager, sem permissão de admin pra criar usuário novo (listUsersLite é
+    // aberto a qualquer logado, só admin.createUser é admin-only) — best-effort esperado, segue
+    // sem essa parte.
     if (!(error instanceof ApiError) || error.status !== 403) throw error;
   }
 
@@ -140,6 +146,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
       manufacturer: "Apple",
       model: "A2918",
       department: "Engenharia",
+      assignee_id: users[0]?.id,
       assignee: "Marina Duarte",
       location: "São Paulo - HQ",
       purchase_value: 18400,
@@ -156,6 +163,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
       manufacturer: "Lenovo",
       model: "21HD",
       department: "Operações",
+      assignee_id: users[1]?.id,
       assignee: "Rafael Nunes",
       location: "Campinas - CD1",
       purchase_value: 9200,
@@ -185,6 +193,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
       manufacturer: "Apple",
       model: "A3090",
       department: "Comercial",
+      assignee_id: users[3]?.id,
       assignee: "Diego Prado",
       location: "Rio de Janeiro",
       purchase_value: 7300,
@@ -201,6 +210,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
       manufacturer: "MobiCorp",
       model: "FLX-200",
       department: "Financeiro",
+      assignee_id: users[2]?.id,
       assignee: "Helena Castro",
       location: "São Paulo - HQ",
       purchase_value: 2200,
@@ -332,6 +342,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
     createPpe({
       name: "Capacete Classe B",
       ca: "CA-31469",
+      assignee_id: users[4]?.id,
       assignee: "Paula Ferraz",
       department: "Operações",
       status: "valid",
@@ -342,6 +353,7 @@ export async function seedDemoData(): Promise<SeedSummary> {
     createPpe({
       name: "Luva Nitrílica",
       ca: "CA-31480",
+      assignee_id: users[1]?.id,
       assignee: "Rafael Nunes",
       department: "Operações",
       status: "expiring",

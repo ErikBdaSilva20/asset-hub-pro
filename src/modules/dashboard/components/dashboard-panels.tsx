@@ -317,7 +317,10 @@ export function AssignedEquipmentPanel() {
 
   return (
     <div className="panel overflow-hidden">
-      <PanelHeader title="Quem está com o quê" to="/users" />
+      {/* /cargo (não /users) — é a tela que admin e manager acessam; /users é admin-only de
+          verdade (plugin admin do Better-Auth). /cargo mostra a mesma ficha completa (inclusive
+          assinaturas pro admin, ver CargoScreen.tsx). */}
+      <PanelHeader title="Quem está com o quê" to="/cargo" />
       <ul className="divide-y divide-border">
         {holders.map(({ user, assets: heldAssets }) => {
           // Sem cargo definido não deve casar com uma linha de ppe_requirements que porventura

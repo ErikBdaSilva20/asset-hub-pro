@@ -21,6 +21,8 @@ import { useCategoryOptions } from "@/shared/hooks/use-category-options";
 import { useUserOptions } from "@/shared/hooks/use-user-options";
 import { findByNameCaseInsensitive } from "@/shared/utils/find-by-name";
 import { sortOptionsByLabel } from "@/shared/utils/sort-options";
+import { useAuth } from "@/lib/auth";
+import { canManageCatalog } from "@/shared/utils/permissions";
 
 const mono = (value: string | null) => <span className="font-mono text-xs">{value ?? "—"}</span>;
 const muted = (value: string | null) => (
@@ -34,30 +36,36 @@ const statusOptions = [
   { value: "expired", label: "Vencido" },
 ];
 
-const columns: Column<Ppe>[] = [
-  { key: "name", header: "EPI", cell: (row) => <span className="font-medium">{row.name}</span> },
-  { key: "ca", header: "CA", cell: (row) => mono(row.ca) },
-  { key: "category", header: "Categoria", cell: (row) => muted(row.category) },
-  { key: "assignee", header: "Responsável", cell: (row) => muted(row.assignee) },
-  { key: "department", header: "Departamento", cell: (row) => muted(row.department) },
-  {
-    key: "status",
-    header: "Status",
-    cell: (row) => <StatusBadge status={effectivePpeStatus(row)} />,
-  },
-  {
-    key: "expires",
-    header: "Validade",
-    align: "right",
-    cell: (row) => <span className="tabular">{formatDate(row.expires_at)}</span>,
-  },
-  {
-    key: "cost",
-    header: "Custo",
-    align: "right",
-    cell: (row) => <span className="tabular">{formatCurrency(row.cost)}</span>,
-  },
-];
+// Custo é dado sensível (item de alto valor exposto vira alvo) — rep nunca vê, só admin/manager.
+function buildColumns(showValue: boolean): Column<Ppe>[] {
+  const columns: Column<Ppe>[] = [
+    { key: "name", header: "EPI", cell: (row) => <span className="font-medium">{row.name}</span> },
+    { key: "ca", header: "CA", cell: (row) => mono(row.ca) },
+    { key: "category", header: "Categoria", cell: (row) => muted(row.category) },
+    { key: "assignee", header: "Responsável", cell: (row) => muted(row.assignee) },
+    { key: "department", header: "Departamento", cell: (row) => muted(row.department) },
+    {
+      key: "status",
+      header: "Status",
+      cell: (row) => <StatusBadge status={effectivePpeStatus(row)} />,
+    },
+    {
+      key: "expires",
+      header: "Validade",
+      align: "right",
+      cell: (row) => <span className="tabular">{formatDate(row.expires_at)}</span>,
+    },
+  ];
+  if (showValue) {
+    columns.push({
+      key: "cost",
+      header: "Custo",
+      align: "right",
+      cell: (row) => <span className="tabular">{formatCurrency(row.cost)}</span>,
+    });
+  }
+  return columns;
+}
 
 /**
  * O campo "EPI" (nome) vira um select com os nomes já cadastrados em Requisitos de EPI
@@ -130,6 +138,8 @@ function buildCreateFields(
 }
 
 export function PpeScreen() {
+  const { role } = useAuth();
+  const showValue = canManageCatalog(role);
   const { list, readOnly, emptyState } = useRoleScopedResource(listPpes, (row) => row.assignee_id);
   const queryClient = useQueryClient();
   const { data: requirements = [] } = useListQuery({
@@ -198,7 +208,7 @@ export function PpeScreen() {
       onUpdate={(id, values) => updatePpe(id, values as Partial<Ppe>)}
       onDelete={(id) => removePpe(id)}
       statusOptions={statusOptions}
-      columns={columns}
+      columns={buildColumns(showValue)}
       readOnly={readOnly}
       emptyTitle={emptyState?.title}
       emptyDescription={emptyState?.description}
@@ -215,7 +225,7 @@ export function PpeScreen() {
               { label: "Entregue em", value: formatDate(row.delivered_at) },
               { label: "Validade", value: formatDate(row.expires_at) },
               { label: "Estoque", value: row.stock },
-              { label: "Custo", value: formatCurrency(row.cost) },
+              ...(showValue ? [{ label: "Custo", value: formatCurrency(row.cost) }] : []),
             ]}
           />
         ),

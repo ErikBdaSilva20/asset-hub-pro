@@ -211,14 +211,21 @@ export function ResourcePage<T extends { id: string }>({
         meta={meta}
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>
-              {exporting ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Download className="size-4" />
-              )}
-              Exportar
-            </Button>
+            {
+              // `readOnly` (rep nas tabelas lookup) esconde Exportar de propósito — o CSV pega a
+              // linha inteira (toCsv(rows)), inclusive campos sensíveis (purchase_value, cost)
+              // que as colunas já escondem pra esse papel. Esconder só a coluna não bastava.
+              !readOnly && (
+                <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>
+                  {exporting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Download className="size-4" />
+                  )}
+                  Exportar
+                </Button>
+              )
+            }
             {canImport && (
               <>
                 <input

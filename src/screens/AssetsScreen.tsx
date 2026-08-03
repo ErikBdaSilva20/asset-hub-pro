@@ -15,31 +15,48 @@ import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
 import { useCategoryOptions } from "@/shared/hooks/use-category-options";
 import { useDepartmentOptions } from "@/shared/hooks/use-department-options";
 import { useUserOptions } from "@/shared/hooks/use-user-options";
+import { useAuth } from "@/lib/auth";
+import { canManageCatalog } from "@/shared/utils/permissions";
 
 const mono = (value: string | null) => <span className="font-mono text-xs">{value ?? "—"}</span>;
 const muted = (value: string | null) => (
   <span className="text-muted-foreground">{value ?? "—"}</span>
 );
 
-export const assetColumns: Column<Asset>[] = [
-  { key: "tag", header: "Etiqueta", cell: (row) => mono(row.tag), width: "110px" },
-  { key: "name", header: "Ativo", cell: (row) => <span className="font-medium">{row.name}</span> },
-  { key: "category", header: "Categoria", cell: (row) => muted(row.category) },
-  { key: "status", header: "Status", cell: (row) => <StatusBadge status={row.status} /> },
-  { key: "assignee", header: "Responsável", cell: (row) => muted(row.assignee) },
-  { key: "location", header: "Local", cell: (row) => muted(row.location) },
-  {
-    key: "value",
-    header: "Valor",
-    align: "right",
-    cell: (row) => <span className="tabular">{formatCurrency(row.purchase_value)}</span>,
-  },
-];
+/**
+ * `showValue`: valor de compra é dado sensível (item de alto valor exposto vira alvo) — rep
+ * (que vê os próprios ativos, tabela lookup) nunca vê preço, só admin/manager que gerenciam o
+ * catálogo. Não é decisão de UI só por estética: esconder a coluna aqui é a única barreira,
+ * já que `assets` é lida por qualquer logado no gateway.
+ */
+export function buildAssetColumns(showValue: boolean): Column<Asset>[] {
+  const columns: Column<Asset>[] = [
+    { key: "tag", header: "Etiqueta", cell: (row) => mono(row.tag), width: "110px" },
+    { key: "name", header: "Ativo", cell: (row) => <span className="font-medium">{row.name}</span> },
+    { key: "category", header: "Categoria", cell: (row) => muted(row.category) },
+    { key: "status", header: "Status", cell: (row) => <StatusBadge status={row.status} /> },
+    { key: "assignee", header: "Responsável", cell: (row) => muted(row.assignee) },
+    { key: "location", header: "Local", cell: (row) => muted(row.location) },
+  ];
+  if (showValue) {
+    columns.push({
+      key: "value",
+      header: "Valor",
+      align: "right",
+      cell: (row) => <span className="tabular">{formatCurrency(row.purchase_value)}</span>,
+    });
+  }
+  return columns;
+}
 
-const assetRangeFilters = [
-  { key: "purchase_value", label: "Valor de compra", type: "number" as const },
-  { key: "purchase_date", label: "Data de compra", type: "date" as const },
-];
+function buildAssetRangeFilters(showValue: boolean) {
+  return [
+    ...(showValue
+      ? [{ key: "purchase_value", label: "Valor de compra", type: "number" as const }]
+      : []),
+    { key: "purchase_date", label: "Data de compra", type: "date" as const },
+  ];
+}
 
 export const assetStatusOptions = [
   { value: "all", label: "Todos os status" },
@@ -131,31 +148,30 @@ export function buildAssetFields(
   ];
 }
 
-export function assetDetail(row: Asset) {
+export function assetDetail(row: Asset, showValue: boolean) {
+  const items = [
+    { label: "Status", value: <StatusBadge status={row.status} /> },
+    { label: "Condição", value: <StatusBadge status={row.condition} /> },
+    { label: "Número de série", value: mono(row.serial_number) },
+    { label: "Modelo", value: `${row.manufacturer ?? "—"} ${row.model ?? ""}`.trim() },
+    { label: "Responsável", value: row.assignee ?? "—" },
+    { label: "Departamento", value: row.department ?? "—" },
+    { label: "Local", value: row.location ?? "—" },
+    { label: "Compra", value: formatDate(row.purchase_date) },
+    ...(showValue ? [{ label: "Valor", value: formatCurrency(row.purchase_value) }] : []),
+    { label: "Garantia até", value: formatDate(row.warranty_until) },
+    { label: "Atualizado", value: formatDate(row.updated_at) },
+  ];
   return {
     title: row.name,
     subtitle: `${row.tag} · ${row.category ?? "—"}`,
-    content: (
-      <DetailGrid
-        items={[
-          { label: "Status", value: <StatusBadge status={row.status} /> },
-          { label: "Condição", value: <StatusBadge status={row.condition} /> },
-          { label: "Número de série", value: mono(row.serial_number) },
-          { label: "Modelo", value: `${row.manufacturer ?? "—"} ${row.model ?? ""}`.trim() },
-          { label: "Responsável", value: row.assignee ?? "—" },
-          { label: "Departamento", value: row.department ?? "—" },
-          { label: "Local", value: row.location ?? "—" },
-          { label: "Compra", value: formatDate(row.purchase_date) },
-          { label: "Valor", value: formatCurrency(row.purchase_value) },
-          { label: "Garantia até", value: formatDate(row.warranty_until) },
-          { label: "Atualizado", value: formatDate(row.updated_at) },
-        ]}
-      />
-    ),
+    content: <DetailGrid items={items} />,
   };
 }
 
 export function AssetsScreen() {
+  const { role } = useAuth();
+  const showValue = canManageCatalog(role);
   const { list, readOnly, emptyState } = useRoleScopedResource(
     listAssets,
     (row) => row.assignee_id,
@@ -174,9 +190,9 @@ export function AssetsScreen() {
       resource="assets"
       list={list}
       statusOf={(row) => row.status}
-      columns={assetColumns}
+      columns={buildAssetColumns(showValue)}
       statusOptions={assetStatusOptions}
-      rangeFilters={assetRangeFilters}
+      rangeFilters={buildAssetRangeFilters(showValue)}
       createLabel="Novo ativo"
       createFields={buildAssetFields(
         assetKindOptions,
@@ -189,7 +205,7 @@ export function AssetsScreen() {
       onCreate={(values) => createAsset(values as Partial<Asset>)}
       onUpdate={(id, values) => updateAsset(id, values as Partial<Asset>)}
       onDelete={(id) => removeAsset(id)}
-      detail={assetDetail}
+      detail={(row) => assetDetail(row, showValue)}
       readOnly={readOnly}
       emptyTitle={emptyState?.title}
       emptyDescription={emptyState?.description}

@@ -8,7 +8,6 @@ declare global {
     __MASI_PREVIEW__?: boolean;
   }
 }
-
 export function resolveConfig(): { gatewayUrl: string; tenantId: string } {
   if (typeof window !== "undefined") {
     const params = new URLSearchParams(window.location.search);

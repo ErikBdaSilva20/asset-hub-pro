@@ -12,8 +12,10 @@ import { useRoleScopedResource } from "@/shared/hooks/use-role-scoped-resource";
 import { useCategoryOptions } from "@/shared/hooks/use-category-options";
 import { useDepartmentOptions } from "@/shared/hooks/use-department-options";
 import { useUserOptions } from "@/shared/hooks/use-user-options";
+import { useAuth } from "@/lib/auth";
+import { canManageCatalog } from "@/shared/utils/permissions";
 import {
-  assetColumns,
+  buildAssetColumns,
   assetDetail,
   assetKindOptions,
   assetStatusOptions,
@@ -25,6 +27,8 @@ const equipmentKindOptions = assetKindOptions.filter((option) =>
 );
 
 export function EquipmentScreen() {
+  const { role } = useAuth();
+  const showValue = canManageCatalog(role);
   const { list, readOnly, emptyState } = useRoleScopedResource(
     listEquipment,
     (row) => row.assignee_id,
@@ -41,7 +45,7 @@ export function EquipmentScreen() {
       resource="equipment"
       list={list}
       statusOf={(row) => row.status}
-      columns={assetColumns}
+      columns={buildAssetColumns(showValue)}
       statusOptions={assetStatusOptions}
       createLabel="Novo equipamento"
       createFields={buildAssetFields(
@@ -55,7 +59,7 @@ export function EquipmentScreen() {
       onCreate={(values) => createAsset(values as Partial<Asset>)}
       onUpdate={(id, values) => updateAsset(id, values as Partial<Asset>)}
       onDelete={(id) => removeAsset(id)}
-      detail={assetDetail}
+      detail={(row) => assetDetail(row, showValue)}
       readOnly={readOnly}
       emptyTitle={emptyState?.title}
       emptyDescription={emptyState?.description}
