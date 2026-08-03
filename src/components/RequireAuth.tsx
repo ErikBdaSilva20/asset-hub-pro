@@ -13,7 +13,7 @@ interface RequireAuthProps {
 }
 
 export function RequireAuth({ children, roles }: RequireAuthProps) {
-  const { user, role, loading } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -28,9 +28,10 @@ export function RequireAuth({ children, roles }: RequireAuthProps) {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  if (roles && !hasAnyRole(role, roles)) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  // Demo mock (Vercel) — sem restrição de tela por papel, pra dar pra navegar livre trocando de
+  // identidade pelo PreviewRoleSwitcher sem cair fora de nenhuma rota. Sujo de propósito.
+  void roles;
+  void hasAnyRole;
 
   return <>{children}</>;
 }

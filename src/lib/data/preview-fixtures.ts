@@ -519,7 +519,19 @@ const fixturesByTable: Record<string, unknown[]> = {
 
 // Demo pública (Vercel, sem login) — troca quem "está logado" sem precisar de sessão real.
 // Sujo de propósito: é build só-mock, não precisa ficar bonito (ver conversa da sessão).
-let currentPreviewUserId = ANA_ID;
+// PRECISA de localStorage: o switcher dá reload da página pra forçar o app a reler a sessão, e
+// isso reexecuta este módulo do zero — uma variável em memória sozinha voltaria pro padrão (Ana)
+// bem antes da troca valer.
+const PREVIEW_ROLE_KEY = "assethub.preview.role";
+
+function initialPreviewUserId(): string {
+  if (typeof window === "undefined") return ANA_ID;
+  const storedRole = window.localStorage.getItem(PREVIEW_ROLE_KEY);
+  const match = previewUsersLite.find((u) => u.role === storedRole);
+  return match?.id ?? ANA_ID;
+}
+
+let currentPreviewUserId = initialPreviewUserId();
 
 export function getPreviewRole(): "admin" | "manager" | "rep" {
   return previewUsersLite.find((u) => u.id === currentPreviewUserId)?.role ?? "admin";
@@ -527,7 +539,10 @@ export function getPreviewRole(): "admin" | "manager" | "rep" {
 
 export function setPreviewRole(role: "admin" | "manager" | "rep") {
   const match = previewUsersLite.find((u) => u.role === role);
-  if (match) currentPreviewUserId = match.id;
+  if (match) {
+    currentPreviewUserId = match.id;
+    if (typeof window !== "undefined") window.localStorage.setItem(PREVIEW_ROLE_KEY, role);
+  }
 }
 
 export function previewRequest<T>(method: string, path: string, body?: unknown): Promise<T> {

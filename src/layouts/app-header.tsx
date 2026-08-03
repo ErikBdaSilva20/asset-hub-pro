@@ -12,12 +12,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { notifications } from "@/mock/notifications";
 import { getErrorMessage } from "@/shared/utils/errors";
-import { formatRelative, initials } from "@/shared/utils/format";
+import { initials } from "@/shared/utils/format";
 import { isAdmin, canManageCatalog } from "@/shared/utils/permissions";
 import {
-  Bell,
   ChevronDown,
   CircleHelp,
   LogOut,
@@ -134,8 +132,6 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
             <Search className="size-4" />
           </Button>
 
-          <NotificationsMenu />
-
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="sm" className="size-8 p-0" onClick={onToggleTheme}>
@@ -200,52 +196,6 @@ export function AppHeader({ onOpenHelp, onOpenSearch, theme, onToggleTheme }: Ap
         </div>
       </div>
     </header>
-  );
-}
-
-function NotificationsMenu() {
-  const unread = notifications.filter((item) => !item.read).length;
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative size-8 p-0">
-          <Bell className="size-4" />
-          {unread > 0 && (
-            <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-destructive" />
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
-        <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <p className="text-sm font-medium">Notificações</p>
-          <span className="text-xs text-muted-foreground">{unread} não lidas</span>
-        </div>
-        <ul className="max-h-80 divide-y divide-border overflow-y-auto">
-          {notifications.map((item) => (
-            <li key={item.id} className="px-3 py-2.5">
-              <div className="flex items-start gap-2">
-                <span
-                  className={cn(
-                    "mt-1.5 size-1.5 shrink-0 rounded-full",
-                    item.severity === "critical"
-                      ? "bg-destructive"
-                      : item.severity === "warning"
-                        ? "bg-warning"
-                        : "bg-info",
-                  )}
-                />
-                <div className="space-y-0.5">
-                  <p className="text-sm leading-snug">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">{item.description}</p>
-                  <p className="text-xs text-muted-foreground/70">{formatRelative(item.at)}</p>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </PopoverContent>
-    </Popover>
   );
 }
 

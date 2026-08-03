@@ -22,7 +22,6 @@ export function PreviewRoleSwitcher() {
           className="rounded-full"
           onClick={() => {
             setPreviewRole(option.value);
-            window.location.href = "/dashboard";
             window.location.reload();
           }}
         >
