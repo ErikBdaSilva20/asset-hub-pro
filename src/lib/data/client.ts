@@ -32,7 +32,12 @@ export function resolveConfig(): { gatewayUrl: string; tenantId: string } {
 }
 
 function isPreviewMode(): boolean {
-  return typeof window !== "undefined" && window.__MASI_PREVIEW__ === true;
+  // Forçado sempre true pra este deploy (Vercel, demo estático) — não há gateway/tenant real
+  // configurado via env var aqui, então o app inteiro roda 100% em cima de
+  // src/lib/data/preview-fixtures.ts, nunca chama rede. Reverter: voltar pra
+  // `window.__MASI_PREVIEW__ === true` (o resto do template — client.ts, dev-gateway — continua
+  // intocado, é só este flag).
+  return true;
 }
 
 function tryParseJson(text: string): Record<string, unknown> | null {
